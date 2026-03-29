@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zori"
+version = "0.1.0"
+description = "An open-source multi-agent research assistant for your Zotero library"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+dependencies = [
+    # Agent orchestration
+    "langgraph>=0.2",
+    "langchain>=0.3",
+    "langchain-openai>=0.2",
+    "langchain-anthropic>=0.2",
+    "langchain-community>=0.3",
+    # Zotero
+    "pyzotero>=1.6",
+    # PDF parsing
+    "pdfplumber>=0.11",
+    # Vector store
+    "chromadb>=0.5",
+    # Embeddings
+    "openai>=1.0",
+    "anthropic>=0.30",
+    # Config
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    # CLI
+    "typer>=0.12",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+qdrant = ["qdrant-client>=1.9"]
+huggingface = ["sentence-transformers>=3.0"]
+ui = ["gradio>=4.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+zori = "zori.cli:app"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

@@ -1,0 +1,29 @@
+# LLM Backend
+llm:
+  provider: openai          # openai | anthropic
+  model: gpt-4o             # or claude-sonnet-4-6
+  temperature: 0.2
+
+# Embeddings
+embeddings:
+  provider: openai          # openai | huggingface
+  model: text-embedding-3-small
+
+# Vector Store
+vector_store:
+  provider: chroma          # chroma | qdrant
+  persist_directory: .zori/chroma
+  # qdrant_url: http://localhost:6333  # if using Qdrant
+
+# Ingestion
+ingestion:
+  mode: batch               # batch | on_demand | hybrid
+  sync_on_startup: true     # check Zotero for new items on launch
+  chunk_size: 1000
+  chunk_overlap: 200
+
+# Zotero
+zotero:
+  library_id: YOUR_LIBRARY_ID
+  library_type: user        # user | group
+  # api_key loaded from .env
