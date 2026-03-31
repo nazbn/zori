@@ -1,13 +1,13 @@
 # LLM Backend
 llm:
-  provider: openai          # openai | anthropic
-  model: gpt-4o             # or claude-sonnet-4-6
+  provider: openai          # openai | anthropic | ollama
+  model: gpt-4o             # or claude-sonnet-4-6 | or llama3.2 (ollama)
   temperature: 0.2
 
 # Embeddings
 embeddings:
-  provider: openai          # openai | huggingface
-  model: text-embedding-3-small
+  provider: openai          # openai | huggingface | ollama
+  model: text-embedding-3-small  # or nomic-embed-text (ollama)
 
 # Vector Store
 vector_store:

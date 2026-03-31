@@ -17,6 +17,7 @@ dependencies = [
     "langchain-openai>=0.2",
     "langchain-anthropic>=0.2",
     "langchain-community>=0.3",
+    "langchain-ollama>=0.2",
     # Zotero
     "pyzotero>=1.6",
     # PDF parsing
