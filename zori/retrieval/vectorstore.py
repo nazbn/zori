@@ -24,6 +24,9 @@ class MetadataStore:
         self._data: dict[str, dict] = self._load()
 
     def save(self, item: ZoteroItem) -> None:
+        # Store all PDF attachment keys. v1 uses the first for download.
+        # TODO: smarter attachment selection when multiple PDFs exist (future release)
+        attachment_keys = [a.key for a in item.attachments]
         self._data[item.key] = {
             "title": item.title,
             "authors": item.authors,
@@ -32,11 +35,20 @@ class MetadataStore:
             "doi": item.doi,
             "tags": item.tags,
             "item_type": item.item_type,
+            "attachment_keys": attachment_keys,
         }
         self._persist()
 
     def get(self, item_key: str) -> dict | None:
         return self._data.get(item_key)
+
+    def get_attachment_key(self, item_key: str) -> str | None:
+        """Return the first attachment key for download. Multi-PDF selection is a future improvement."""
+        meta = self._data.get(item_key)
+        if not meta:
+            return None
+        keys = meta.get("attachment_keys", [])
+        return keys[0] if keys else None
 
     def delete(self, item_key: str) -> None:
         self._data.pop(item_key, None)

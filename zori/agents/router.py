@@ -54,7 +54,10 @@ def make_router_node(llm: BaseChatModel) -> Callable[[ZoriState], dict]:
         messages = [SystemMessage(content=system_content)] + state["messages"]
         output: RouterOutput = structured_llm.invoke(messages)
 
-        updates: dict = {"intent": output.intent}
+        updates: dict = {
+            "intent": output.intent,
+            "search_mode": "find_for_summarize" if output.intent == "summarize" else "display",
+        }
 
         if output.intent == "summarize":
             updates["target_key"] = output.target_key
