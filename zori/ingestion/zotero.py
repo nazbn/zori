@@ -45,6 +45,15 @@ class ZoteroClient:
         self._zot.items(limit=1)
         return int(self._zot.request.headers.get("Last-Modified-Version", 0))
 
+    def write_note(self, item_key: str, html: str, tags: list[str] | None = None) -> None:
+        """Save an HTML note as a child of the given item in Zotero."""
+        self._zot.create_items([{
+            "itemType": "note",
+            "parentItem": item_key,
+            "note": html,
+            "tags": [{"tag": t} for t in (tags or [])],
+        }])
+
     def download_pdf(self, attachment_key: str) -> bytes:
         """Download a PDF attachment and return its raw bytes."""
         return self._zot.file(attachment_key)

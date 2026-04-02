@@ -15,30 +15,32 @@ class ZoriState(TypedDict):
     intent: str                        # "search" | "summarize" | "general"
     search_mode: str                   # "display" | "find_for_summarize"
     target_key: str | None             # Zotero item key, set before summarization
-    save_to_zotero: bool
     search_results: list[SearchResult]
     summary: str | None
     response: str | None
-    # Human-in-the-loop confirmation (used by paper_finder)
+    # Human-in-the-loop confirmation — one generic mechanism for all confirmation types
     pending_confirmation: bool
-    candidate_key: str | None          # proposed key awaiting user confirmation
-
-
-def _route_to_agent(state: ZoriState) -> str:
-    if state.get("pending_confirmation"):
-        return "paper_finder"
-    return state["intent"]
+    confirmation_type: str | None      # "paper_selection" | "save_summary" | ...
+    candidate_key: str | None          # used by paper_selection confirmation
 
 
 def _route_from_router(state: ZoriState) -> str:
+    if state.get("pending_confirmation"):
+        ctype = state.get("confirmation_type")
+        if ctype == "paper_selection":
+            return "paper_finder"
+        if ctype == "save_summary":
+            return "writer"
     intent = state["intent"]
     if intent == "summarize" and not state.get("target_key"):
         return "paper_finder"
     return intent
 
 
-def _should_save(state: ZoriState) -> str:
-    return "writer" if state.get("save_to_zotero") else END
+def _route_from_paper_finder(state: ZoriState) -> str:
+    if state.get("target_key") and state.get("intent") == "summarize":
+        return "summarization"
+    return END
 
 
 def build_graph(
@@ -65,30 +67,24 @@ def build_graph(
         _route_from_router,
         {
             "search": "paper_finder",
-            "summarize": "summarization",   # only reached when target_key is known
+            "summarize": "summarization",
             "paper_finder": "paper_finder",
+            "writer": "writer",
             "general": END,
         },
     )
 
     graph.add_conditional_edges(
         "paper_finder",
-        lambda s: "summarization" if s.get("target_key") and s["intent"] == "summarize" else END,
+        _route_from_paper_finder,
         {
             "summarization": "summarization",
             END: END,
         },
     )
 
-    graph.add_conditional_edges(
-        "summarization",
-        _should_save,
-        {
-            "writer": "writer",
-            END: END,
-        },
-    )
-
+    # summarization always goes to END — save confirmation happens next turn
+    graph.add_edge("summarization", END)
     graph.add_edge("writer", END)
 
     return graph.compile()

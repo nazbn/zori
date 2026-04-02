@@ -50,6 +50,7 @@ def make_paper_finder_node(search_service: SearchService) -> Callable[[ZoriState
             return {
                 "search_results": results,
                 "pending_confirmation": True,
+                "confirmation_type": "paper_selection",
                 "candidate_key": top.item_key,
                 "response": response,
                 "messages": [AIMessage(content=response)],
@@ -66,7 +67,8 @@ def make_paper_finder_node(search_service: SearchService) -> Callable[[ZoriState
         return {
             "search_results": results,
             "pending_confirmation": True,
-            "candidate_key": None,   # user must pick
+            "confirmation_type": "paper_selection",
+            "candidate_key": None,
             "response": response,
             "messages": [AIMessage(content=response)],
         }
@@ -87,6 +89,7 @@ def _handle_confirmation(state: ZoriState) -> dict:
             return {
                 "target_key": key,
                 "pending_confirmation": False,
+                "confirmation_type": None,
                 "candidate_key": None,
             }
 
@@ -95,6 +98,7 @@ def _handle_confirmation(state: ZoriState) -> dict:
         return {
             "target_key": state.get("candidate_key"),
             "pending_confirmation": False,
+            "confirmation_type": None,
             "candidate_key": None,
         }
 
@@ -103,6 +107,7 @@ def _handle_confirmation(state: ZoriState) -> dict:
     return {
         "target_key": None,
         "pending_confirmation": False,
+        "confirmation_type": None,
         "candidate_key": None,
         "response": response,
         "messages": [AIMessage(content=response)],
