@@ -32,7 +32,7 @@ def format_authors(authors: list[str]) -> str:
 
 def zotero_link(item_key: str, label: str = "open in Zotero") -> str:
     uri = f"zotero://select/library/items/{item_key}"
-    return f"\x1b]8;;{uri}\x1b\\{label}\x1b]8;;\x1b\\"
+    return f"[link={uri}]{label}[/link]"
 
 
 def format_results(query: str, results: list[SearchResult]) -> str:

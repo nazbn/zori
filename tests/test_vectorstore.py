@@ -11,6 +11,8 @@ def store(tmp_path):
 
 def _make_item(key="P1", title="Test Paper", year="2023",
                tags=None, authors=None, attachments=None):
+    if attachments is None:
+        attachments = [ZoteroAttachment(key="A1", filename="paper.pdf", parent_key=key, md5="abc")]
     return ZoteroItem(
         key=key,
         title=title,
@@ -20,9 +22,7 @@ def _make_item(key="P1", title="Test Paper", year="2023",
         journal="Test Journal",
         doi="10.1234/test",
         tags=tags or ["ml"],
-        attachments=attachments or [
-            ZoteroAttachment(key="A1", filename="paper.pdf", parent_key=key, md5="abc")
-        ],
+        attachments=attachments,
     )
 
 

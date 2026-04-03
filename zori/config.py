@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 import os
 
 
@@ -42,16 +42,24 @@ class ZoteroConfig:
 
 
 @dataclass
+class SearchConfig:
+    # Maximum number of search refinement rounds paper_finder can run
+    # before returning its best results. 1 = no follow-up searches.
+    max_search_iterations: int
+
+
+@dataclass
 class Config:
     llm: LLMConfig
     embeddings: EmbeddingsConfig
     vector_store: VectorStoreConfig
     ingestion: IngestionConfig
     zotero: ZoteroConfig
+    search: SearchConfig
 
 
 def load_config(path: str = "config.yaml") -> Config:
-    load_dotenv()
+    load_dotenv(find_dotenv(usecwd=True))
 
     config_path = Path(path)
     if not config_path.exists():
@@ -80,6 +88,7 @@ def load_config(path: str = "config.yaml") -> Config:
     ing_raw = raw.get("ingestion", {})
     llm_raw = raw.get("llm", {})
     emb_raw = raw.get("embeddings", {})
+    search_raw = raw.get("search", {})
 
     return Config(
         llm=LLMConfig(
@@ -106,5 +115,8 @@ def load_config(path: str = "config.yaml") -> Config:
             library_id=library_id,
             library_type=zotero_raw.get("library_type", "user"),
             api_key=api_key,
+        ),
+        search=SearchConfig(
+            max_search_iterations=search_raw.get("max_search_iterations", 3),
         ),
     )

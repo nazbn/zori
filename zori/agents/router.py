@@ -12,9 +12,11 @@ You help researchers search, summarize, and explore their papers.
 
 Classify the user's message into one of three intents:
 
-- "search": user wants to find papers on a topic, author, or keyword
+- "search": user wants to find papers in their library — any phrasing like "find", "give me papers on",
+  "show me", "what do I have on", "papers about", or a topic/keyword without a clear action
 - "summarize": user wants a summary of a specific paper
-- "general": a research question you can answer directly from your knowledge
+- "general": ONLY for questions that cannot be answered by searching the library — e.g. "what does
+  RAG stand for?", "explain transformers", "how does Zori work?". If in doubt, prefer "search".
 
 For "summarize": if previous search results are provided and the user refers to one of them
 (e.g. "the first one", "the attention paper", "that last result"), extract its item_key.

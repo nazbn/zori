@@ -27,3 +27,9 @@ zotero:
   library_id: YOUR_LIBRARY_ID
   library_type: user        # user | group
   # api_key loaded from .env
+
+# Search
+search:
+  # Maximum number of search refinement rounds paper_finder can run
+  # before returning its best results. 1 = no follow-up searches.
+  max_search_iterations: 3

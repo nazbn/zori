@@ -1,3 +1,7 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="langchain_core")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="chromadb")
+
 from dataclasses import dataclass
 
 import typer
@@ -74,7 +78,7 @@ def _repl():
         raise typer.Exit(1)
 
     llm = get_llm(config)
-    graph = build_graph(services.search_service, services.zotero, llm)
+    graph = build_graph(services.search_service, services.zotero, llm, config.search.max_search_iterations)
 
     if config.ingestion.sync_on_startup:
         console.print("[dim]Checking for new items in Zotero...[/dim]")
@@ -113,7 +117,7 @@ def _repl():
             continue
 
         if state.get("response"):
-            console.print(state["response"])
+            console.print(state["response"], markup=True)
         console.print()
 
 
@@ -145,4 +149,4 @@ def search(
         raise typer.Exit(1)
 
     results = services.search_service.search(query, top_k=top)
-    console.print(format_results(query, results))
+    console.print(format_results(query, results), markup=True)

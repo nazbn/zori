@@ -8,10 +8,7 @@ from zori.retrieval.vectorstore import MetadataStore
 
 
 def _make_item(key="P1", version=1, with_pdf=True):
-    attachments = (
-        [ZoteroAttachment(key="A1", filename="paper.pdf", parent_key=key, md5="abc")]
-        if with_pdf else []
-    )
+    attachments = [ZoteroAttachment(key="A1", filename="paper.pdf", parent_key=key, md5="abc")] if with_pdf else []
     return ZoteroItem(
         key=key,
         title="Test Paper",

@@ -83,27 +83,39 @@ class TestPaperFinder:
     def search_service(self):
         from zori.retrieval.search import SearchResult
         svc = MagicMock()
-        svc.search.return_value = [
-            SearchResult(
-                item_key="P1", title="Attention is All You Need",
-                authors=["Vaswani"], year="2017", journal="NeurIPS",
-                text="The Transformer model...", score=0.92,
-            )
-        ]
+        result = SearchResult(
+            item_key="P1", title="Attention is All You Need",
+            authors=["Vaswani"], year="2017", journal="NeurIPS",
+            text="The Transformer model...", score=0.92,
+        )
+        svc.vector_search.return_value = [result]
+        svc.title_search.return_value = []
+        svc.author_search.return_value = []
+        svc.tag_search.return_value = []
         return svc
 
-    def test_display_mode_returns_results(self, search_service):
+    @pytest.fixture
+    def mock_llm(self):
+        from zori.agents.paper_finder import SearchPlan
+        llm = MagicMock()
+        plan = SearchPlan(strategies=["concept"], concept_query="test")
+        analyzer = MagicMock()
+        analyzer.invoke.return_value = plan
+        llm.with_structured_output.return_value = analyzer
+        return llm
+
+    def test_display_mode_returns_results(self, search_service, mock_llm):
         from zori.agents.paper_finder import make_paper_finder_node
-        node = make_paper_finder_node(search_service)
+        node = make_paper_finder_node(search_service, mock_llm, max_iterations=1)
         state = _fresh_state(query="transformers", search_mode="display",
                              messages=[HumanMessage(content="transformers")])
         result = node(state)
         assert len(result["search_results"]) == 1
         assert "Attention" in result["response"]
 
-    def test_find_for_summarize_high_score_asks_confirmation(self, search_service):
+    def test_find_for_summarize_asks_confirmation(self, search_service, mock_llm):
         from zori.agents.paper_finder import make_paper_finder_node
-        node = make_paper_finder_node(search_service)
+        node = make_paper_finder_node(search_service, mock_llm, max_iterations=1)
         state = _fresh_state(query="attention paper", search_mode="find_for_summarize",
                              messages=[HumanMessage(content="attention paper")])
         result = node(state)
@@ -111,10 +123,10 @@ class TestPaperFinder:
         assert result["confirmation_type"] == "paper_selection"
         assert result["candidate_key"] == "P1"
 
-    def test_confirmation_yes_sets_target_key(self, search_service):
+    def test_confirmation_yes_sets_target_key(self, search_service, mock_llm):
         from zori.agents.paper_finder import make_paper_finder_node
         from zori.retrieval.search import SearchResult
-        node = make_paper_finder_node(search_service)
+        node = make_paper_finder_node(search_service, mock_llm)
         result_item = SearchResult(
             item_key="P1", title="Test", authors=[], year=None,
             journal=None, text="", score=0.9,
@@ -131,10 +143,10 @@ class TestPaperFinder:
         assert result["target_key"] == "P1"
         assert result["pending_confirmation"] is False
 
-    def test_confirmation_no_clears_state(self, search_service):
+    def test_confirmation_no_clears_state(self, search_service, mock_llm):
         from zori.agents.paper_finder import make_paper_finder_node
         from zori.retrieval.search import SearchResult
-        node = make_paper_finder_node(search_service)
+        node = make_paper_finder_node(search_service, mock_llm)
         state = _fresh_state(
             query="no",
             pending_confirmation=True,

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "An open-source multi-agent research assistant for your Zotero library"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 
 dependencies = [
     # Agent orchestration

@@ -50,6 +50,36 @@ class MetadataStore:
         keys = meta.get("attachment_keys", [])
         return keys[0] if keys else None
 
+    def title_search(self, query: str) -> list[str]:
+        """Return item keys whose title contains any word from the query."""
+        words = [w for w in query.lower().split() if len(w) > 1]
+        results = []
+        for key, meta in self._data.items():
+            title = meta.get("title", "").lower()
+            if any(w in title for w in words):
+                results.append(key)
+        return results
+
+    def author_search(self, query: str) -> list[str]:
+        """Return item keys with an author name matching the query."""
+        q = query.lower()
+        results = []
+        for key, meta in self._data.items():
+            authors_str = " ".join(meta.get("authors", [])).lower()
+            if q in authors_str:
+                results.append(key)
+        return results
+
+    def tag_search(self, query: str) -> list[str]:
+        """Return item keys where any tag matches any word in the query."""
+        words = [w for w in query.lower().split() if len(w) > 1]
+        results = []
+        for key, meta in self._data.items():
+            tags = [t.lower() for t in meta.get("tags", [])]
+            if any(w in tag or tag in w for w in words for tag in tags):
+                results.append(key)
+        return results
+
     def delete(self, item_key: str) -> None:
         self._data.pop(item_key, None)
         self._persist()

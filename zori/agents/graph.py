@@ -47,6 +47,7 @@ def build_graph(
     search_service: SearchService,
     zotero_client: ZoteroClient,
     llm: BaseChatModel,
+    max_search_iterations: int = 3,
 ):
     from zori.agents.paper_finder import make_paper_finder_node
     from zori.agents.router import make_router_node
@@ -56,7 +57,7 @@ def build_graph(
     graph = StateGraph(ZoriState)
 
     graph.add_node("router", make_router_node(llm))
-    graph.add_node("paper_finder", make_paper_finder_node(search_service))
+    graph.add_node("paper_finder", make_paper_finder_node(search_service, llm, max_search_iterations))
     graph.add_node("summarization", make_summarization_node(zotero_client, llm))
     graph.add_node("writer", make_writer_node(zotero_client))
 
