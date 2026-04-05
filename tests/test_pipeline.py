@@ -36,7 +36,7 @@ def mock_vector_store():
 
 @pytest.fixture
 def metadata_store(tmp_path):
-    return MetadataStore(path=tmp_path / "metadata.json")
+    return MetadataStore(path=tmp_path / "zori.db")
 
 
 @pytest.fixture

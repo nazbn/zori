@@ -1,4 +1,4 @@
-from typing import Callable, Literal
+from typing import Callable
 
 from langchain_core.messages import AIMessage
 from pydantic import BaseModel
@@ -7,41 +7,53 @@ from zori.agents.graph import ZoriState
 from zori.agents.retrieval import format_authors, format_results, zotero_link
 from zori.retrieval.search import SearchResult, SearchService
 
-TOP_K = 10
 MAX_DISPLAY = 5
 
 
 # ---------------------------------------------------------------------------
-# LLM output schemas
+# LLM output schema
 # ---------------------------------------------------------------------------
 
 class SearchPlan(BaseModel):
     """How to search the library for the user's query."""
-    strategies: list[Literal["concept", "title", "author", "tag"]]
-    concept_query: str
-    title_hint: str | None = None
-    author_hint: str | None = None
-    tag_hint: str | None = None
-
-
-class ValidationResult(BaseModel):
-    """Whether the retrieved results answer the user's query."""
-    verdict: Literal["good", "partial", "none"]
-    follow_up_strategy: Literal["concept", "title", "author", "tag"] | None = None
-    follow_up_query: str | None = None
+    display_query: str
+    title: str | None = None            # set only for specific paper/acronym/tool names
+    author: str | None = None
+    year: str | None = None
+    tags: list[str] | None = None
+    lexical_query: str | None = None    # BM25 on papers_fts + chunks_fts
+    semantic_query: str | None = None   # ChromaDB vector search
 
 
 # ---------------------------------------------------------------------------
 # Node factory
 # ---------------------------------------------------------------------------
 
+_QUERY_ANALYZER_PROMPT = """\
+You help find papers in a personal research library.
+Analyze the query and fill the search plan fields:
+
+- display_query: the core topic or paper name (cleaned up, never the full raw query with filler words)
+- title: set ONLY when the user names a specific paper, acronym, or tool \
+(e.g. "TEASER", "attention is all you need", "BERT") — triggers high-precision title search
+- author: person name if mentioned
+- year: publication year if mentioned
+- tags: domain keywords if mentioned (e.g. ["super-resolution", "DEM"])
+- lexical_query: BM25 keyword query — use for specific technical terms, method names, \
+acronyms, or when the user wants an exact phrase; omit for purely broad/conceptual queries
+- semantic_query: embedding search query — always set this to the core topic phrase
+
+Always set semantic_query. Set lexical_query when there are specific keywords or technical terms.
+Set title only for specific paper or tool names — not for topic searches.
+
+Query: {query}"""
+
+
 def make_paper_finder_node(
     search_service: SearchService,
     llm,
-    max_iterations: int = 3,
 ) -> Callable[[ZoriState], dict]:
     query_analyzer = llm.with_structured_output(SearchPlan)
-    result_validator = llm.with_structured_output(ValidationResult)
 
     def paper_finder_node(state: ZoriState) -> dict:
         if state.get("pending_confirmation"):
@@ -50,72 +62,24 @@ def make_paper_finder_node(
         query = state["query"]
         mode = state.get("search_mode", "display")
 
-        # ---- LLM Call 1: understand the query ----
         plan: SearchPlan = query_analyzer.invoke(
-            "You help find papers in a personal research library. "
-            "Analyze the query and choose the best search strategy.\n\n"
-            f"Query: {query}\n\n"
-            "Strategies:\n"
-            '- "title": the query contains a paper title, acronym (e.g. DEM, TEASER, CNN), '
-            "or named tool/system/dataset — use this aggressively for any recognizable proper noun\n"
-            '- "tag": the query contains a domain keyword or tag (e.g. "urban energy", "super-resolution")\n'
-            '- "author": the query mentions a person\'s name\n'
-            '- "concept": broad semantic topic search — use only when no specific name/acronym is present\n\n'
-            "Prefer title or tag over concept whenever the query contains a recognizable term. "
-            "Always provide concept_query. Fill title_hint, author_hint, or tag_hint only when using those strategies."
+            _QUERY_ANALYZER_PROMPT.format(query=query)
         )
 
-        # Use the cleaned query extracted by the LLM for display and follow-up searches.
-        # Falls back to the raw user query only if concept_query is empty.
-        display_query = plan.concept_query or query
-
-        # ---- Retrieve ----
-        results = _execute_plan(plan, search_service)
-
-        # ---- LLM Call 2 + optional refinement loop ----
-        for _ in range(max_iterations - 1):
-            grouped = _group_by_paper(results)[:MAX_DISPLAY]
-            if not grouped:
-                break
-
-            validation: ValidationResult = result_validator.invoke(
-                f"The user searched for: {query}\n\n"
-                "Retrieved papers:\n"
-                + "\n".join(
-                    f"- [{r.item_key}] {r.title} ({r.year or '?'}): "
-                    f"{r.text[:120].replace(chr(10), ' ')}"
-                    for r in grouped
-                )
-                + "\n\nFor each paper, decide if it is genuinely about the query topic — "
-                "not just superficially similar. "
-                "Set verdict to 'none' if most results are off-topic and you have a better search idea. "
-                "Set verdict to 'partial' if some are relevant but a follow-up could surface more. "
-                "Set verdict to 'good' only if the majority are truly on-topic. "
-                "If suggesting a follow-up, prefer 'title' strategy for acronyms or specific tool names, "
-                "'tag' for keywords, 'concept' for broader topics."
-            )
-
-            if validation.verdict == "good":
-                break
-
-            if validation.follow_up_strategy and validation.follow_up_query:
-                more = _execute_single(
-                    validation.follow_up_strategy,
-                    validation.follow_up_query,
-                    search_service,
-                )
-                if validation.verdict == "none":
-                    results = more  # current results are garbage — replace entirely
-                else:
-                    results = _merge(results, more)
-            else:
-                break
+        results = search_service.hybrid_search(
+            lexical_query=plan.lexical_query,
+            semantic_query=plan.semantic_query,
+            title=plan.title,
+            author=plan.author,
+            year=plan.year,
+            tags=plan.tags,
+        )
 
         final = _group_by_paper(results)[:MAX_DISPLAY]
 
         # ---- Display mode (intent = "search") ----
         if mode == "display":
-            response = format_results(display_query, final)
+            response = format_results(plan.display_query, final)
             return {
                 "search_results": final,
                 "response": response,
@@ -124,7 +88,7 @@ def make_paper_finder_node(
 
         # ---- Find-for-summarize mode (intent = "summarize", no key yet) ----
         if not final:
-            response = f'I couldn\'t find "{display_query}" in your library.'
+            response = f'I couldn\'t find "{plan.display_query}" in your library.'
             return {
                 "response": response,
                 "messages": [AIMessage(content=response)],
@@ -148,7 +112,7 @@ def make_paper_finder_node(
             }
 
         # Multiple plausible results — ask the user to pick
-        lines = [f'I found several papers that could match "{display_query}". Which one?\n']
+        lines = [f'I found several papers that could match "{plan.display_query}". Which one?\n']
         for i, r in enumerate(final[:3], 1):
             authors_str = format_authors(r.authors)
             lines.append(
@@ -173,42 +137,6 @@ def make_paper_finder_node(
 # Search helpers
 # ---------------------------------------------------------------------------
 
-def _execute_plan(plan: SearchPlan, search_service: SearchService) -> list[SearchResult]:
-    # Run metadata strategies first (title / author / tag).
-    # If any of them return results, skip concept — an exact metadata match
-    # is always more precise than semantic similarity.
-    metadata: list[SearchResult] = []
-    for strategy in plan.strategies:
-        if strategy != "concept":
-            metadata = _merge(metadata, _execute_single(strategy, _hint(plan, strategy), search_service))
-
-    if metadata:
-        return metadata
-
-    # Fallback: concept (semantic) search
-    return _execute_single("concept", plan.concept_query, search_service)
-
-
-def _hint(plan: SearchPlan, strategy: str) -> str:
-    if strategy == "title" and plan.title_hint:
-        return plan.title_hint
-    if strategy == "author" and plan.author_hint:
-        return plan.author_hint
-    if strategy == "tag" and plan.tag_hint:
-        return plan.tag_hint
-    return plan.concept_query
-
-
-def _execute_single(strategy: str, query: str, search_service: SearchService) -> list[SearchResult]:
-    if strategy == "title":
-        return search_service.title_search(query, top_k=TOP_K)
-    if strategy == "author":
-        return search_service.author_search(query, top_k=TOP_K)
-    if strategy == "tag":
-        return search_service.tag_search(query, top_k=TOP_K)
-    return search_service.vector_search(query, top_k=TOP_K)
-
-
 def _group_by_paper(results: list[SearchResult]) -> list[SearchResult]:
     """Keep the highest-scoring chunk per paper."""
     seen: dict[str, SearchResult] = {}
@@ -216,15 +144,6 @@ def _group_by_paper(results: list[SearchResult]) -> list[SearchResult]:
         if r.item_key not in seen or r.score > seen[r.item_key].score:
             seen[r.item_key] = r
     return sorted(seen.values(), key=lambda r: r.score, reverse=True)
-
-
-def _merge(base: list[SearchResult], new: list[SearchResult]) -> list[SearchResult]:
-    """Combine two result lists, keeping the highest score per item_key."""
-    combined = {r.item_key: r for r in base}
-    for r in new:
-        if r.item_key not in combined or r.score > combined[r.item_key].score:
-            combined[r.item_key] = r
-    return list(combined.values())
 
 
 # ---------------------------------------------------------------------------

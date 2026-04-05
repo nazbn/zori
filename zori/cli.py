@@ -44,7 +44,7 @@ def _init_services() -> tuple[Services, object]:
     vector_store = create_vector_store(config.vector_store.persist_directory, embed_fn)
     metadata_store = MetadataStore()
     lexical_index = LexicalIndex()
-    search_service = SearchService(vector_store, metadata_store)
+    search_service = SearchService(vector_store, metadata_store, lexical_index)
     pipeline = IngestionPipeline(zotero, vector_store, metadata_store, lexical_index)
 
     return Services(zotero, metadata_store, search_service, pipeline, lexical_index), config
@@ -81,7 +81,7 @@ def _repl():
         raise typer.Exit(1)
 
     llm = get_llm(config)
-    graph = build_graph(services.search_service, services.zotero, llm, config.search.max_search_iterations)
+    graph = build_graph(services.search_service, services.zotero, llm, services.lexical_index)
 
     if config.ingestion.sync_on_startup:
         console.print("[dim]Checking for new items in Zotero...[/dim]")

@@ -88,17 +88,14 @@ class TestPaperFinder:
             authors=["Vaswani"], year="2017", journal="NeurIPS",
             text="The Transformer model...", score=0.92,
         )
-        svc.vector_search.return_value = [result]
-        svc.title_search.return_value = []
-        svc.author_search.return_value = []
-        svc.tag_search.return_value = []
+        svc.hybrid_search.return_value = [result]
         return svc
 
     @pytest.fixture
     def mock_llm(self):
         from zori.agents.paper_finder import SearchPlan
         llm = MagicMock()
-        plan = SearchPlan(strategies=["concept"], concept_query="test")
+        plan = SearchPlan(display_query="test", semantic_query="test")
         analyzer = MagicMock()
         analyzer.invoke.return_value = plan
         llm.with_structured_output.return_value = analyzer
@@ -106,7 +103,7 @@ class TestPaperFinder:
 
     def test_display_mode_returns_results(self, search_service, mock_llm):
         from zori.agents.paper_finder import make_paper_finder_node
-        node = make_paper_finder_node(search_service, mock_llm, max_iterations=1)
+        node = make_paper_finder_node(search_service, mock_llm)
         state = _fresh_state(query="transformers", search_mode="display",
                              messages=[HumanMessage(content="transformers")])
         result = node(state)
@@ -115,7 +112,7 @@ class TestPaperFinder:
 
     def test_find_for_summarize_asks_confirmation(self, search_service, mock_llm):
         from zori.agents.paper_finder import make_paper_finder_node
-        node = make_paper_finder_node(search_service, mock_llm, max_iterations=1)
+        node = make_paper_finder_node(search_service, mock_llm)
         state = _fresh_state(query="attention paper", search_mode="find_for_summarize",
                              messages=[HumanMessage(content="attention paper")])
         result = node(state)

@@ -6,6 +6,7 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph import END, StateGraph
 
 from zori.ingestion.zotero import ZoteroClient
+from zori.retrieval.lexical import LexicalIndex
 from zori.retrieval.search import SearchResult, SearchService
 
 
@@ -47,7 +48,7 @@ def build_graph(
     search_service: SearchService,
     zotero_client: ZoteroClient,
     llm: BaseChatModel,
-    max_search_iterations: int = 3,
+    lexical_index: LexicalIndex | None = None,
 ):
     from zori.agents.paper_finder import make_paper_finder_node
     from zori.agents.router import make_router_node
@@ -57,8 +58,8 @@ def build_graph(
     graph = StateGraph(ZoriState)
 
     graph.add_node("router", make_router_node(llm))
-    graph.add_node("paper_finder", make_paper_finder_node(search_service, llm, max_search_iterations))
-    graph.add_node("summarization", make_summarization_node(zotero_client, llm))
+    graph.add_node("paper_finder", make_paper_finder_node(search_service, llm))
+    graph.add_node("summarization", make_summarization_node(zotero_client, llm, lexical_index=lexical_index))
     graph.add_node("writer", make_writer_node(zotero_client))
 
     graph.set_entry_point("router")

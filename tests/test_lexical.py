@@ -9,7 +9,7 @@ from zori.retrieval.lexical import LexicalIndex
 
 @pytest.fixture
 def index(tmp_path):
-    return LexicalIndex(path=tmp_path / "fts.db")
+    return LexicalIndex(path=tmp_path / "zori.db")
 
 
 @pytest.fixture
@@ -71,8 +71,59 @@ def test_add_chunks_empty_list(index):
     assert count == 0
 
 
+def test_search_papers_returns_ranked_results(index, paper, chunks):
+    index.add_paper(paper)
+    index.add_chunks(chunks)
+    results = index.search_papers("GAN super-resolution")
+    assert len(results) > 0
+    keys = [r[0] for r in results]
+    assert "ABC123" in keys
+    # scores are negative floats (BM25 convention)
+    assert all(isinstance(r[1], float) for r in results)
+
+
+def test_search_chunks_returns_ranked_results(index, chunks):
+    index.add_chunks(chunks)
+    results = index.search_chunks("GAN super-resolution")
+    assert len(results) > 0
+    keys = [r[0] for r in results]
+    assert "ABC123" in keys
+
+
+def test_search_chunks_deduplicates_by_paper(index):
+    chunks = [
+        TextChunk(item_key="X1", chunk_index=0, text="neural network training"),
+        TextChunk(item_key="X1", chunk_index=1, text="neural network inference"),
+        TextChunk(item_key="X2", chunk_index=0, text="neural network architecture"),
+    ]
+    index.add_chunks(chunks)
+    results = index.search_chunks("neural network")
+    keys = [r[0] for r in results]
+    assert keys.count("X1") == 1
+    assert keys.count("X2") == 1
+
+
+def test_search_title_finds_paper(index, paper):
+    index.add_paper(paper)
+    keys = index.search_title("generative adversarial")
+    assert "ABC123" in keys
+
+
+def test_search_title_no_match_returns_empty(index, paper):
+    index.add_paper(paper)
+    keys = index.search_title("completely unrelated topic xyz")
+    assert keys == []
+
+
+def test_search_papers_invalid_query_returns_empty(index, paper):
+    index.add_paper(paper)
+    # FTS5 special character that would normally cause a parse error
+    results = index.search_papers('"')
+    assert results == []
+
+
 def test_tables_persist_across_connections(tmp_path, paper, chunks):
-    path = tmp_path / "fts.db"
+    path = tmp_path / "zori.db"
     idx1 = LexicalIndex(path=path)
     idx1.add_paper(paper)
     idx1.add_chunks(chunks)

@@ -6,7 +6,7 @@ from zori.retrieval.vectorstore import MetadataStore
 
 @pytest.fixture
 def store(tmp_path):
-    return MetadataStore(path=tmp_path / "metadata.json")
+    return MetadataStore(path=tmp_path / "zori.db")
 
 
 def _make_item(key="P1", title="Test Paper", year="2023",
@@ -105,8 +105,8 @@ def test_filter_combined(store):
 # --- persistence ---
 
 def test_persists_to_disk(tmp_path):
-    store1 = MetadataStore(path=tmp_path / "metadata.json")
+    store1 = MetadataStore(path=tmp_path / "zori.db")
     store1.save(_make_item())
 
-    store2 = MetadataStore(path=tmp_path / "metadata.json")
+    store2 = MetadataStore(path=tmp_path / "zori.db")
     assert store2.get("P1") is not None

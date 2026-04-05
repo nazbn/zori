@@ -1,25 +1,6 @@
-# Internal library search helpers used by paper_finder.
-# Not a graph node — paper_finder is the node that calls these.
+# Formatting helpers used by paper_finder, summarization, writer, and the CLI.
 
-from zori.retrieval.search import SearchResult, SearchService
-
-TOP_K = 10  # fetch more than displayed to improve grouping quality
-MAX_DISPLAY = 5
-
-
-def search_library(search_service: SearchService, query: str) -> list[SearchResult]:
-    """Search the vector store and return results grouped by paper."""
-    raw = search_service.search(query, top_k=TOP_K)
-    return _group_by_paper(raw)[:MAX_DISPLAY]
-
-
-def _group_by_paper(results: list[SearchResult]) -> list[SearchResult]:
-    """Keep the highest-scoring chunk per paper."""
-    seen: dict[str, SearchResult] = {}
-    for result in results:
-        if result.item_key not in seen or result.score > seen[result.item_key].score:
-            seen[result.item_key] = result
-    return sorted(seen.values(), key=lambda r: r.score, reverse=True)
+from zori.retrieval.search import SearchResult
 
 
 def format_authors(authors: list[str]) -> str:

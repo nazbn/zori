@@ -6,8 +6,8 @@ from pydantic import BaseModel
 
 from zori.agents.graph import ZoriState
 from zori.agents.retrieval import format_authors, zotero_link
-from zori.ingestion.pdf import PDFParser
 from zori.ingestion.zotero import ZoteroClient
+from zori.retrieval.lexical import LexicalIndex
 from zori.retrieval.vectorstore import MetadataStore
 
 SYSTEM_PROMPT = """You are a research assistant summarizing an academic paper.
@@ -43,17 +43,19 @@ def make_summarization_node(
     zotero_client: ZoteroClient,
     llm: BaseChatModel,
     metadata_store: MetadataStore | None = None,
+    lexical_index: LexicalIndex | None = None,
 ) -> Callable[[ZoriState], dict]:
     structured_llm = llm.with_structured_output(SummaryOutput)
-    parser = PDFParser()
 
-    # metadata_store injected at runtime if not provided at build time
     _metadata_store: MetadataStore | None = metadata_store
+    _lexical_index: LexicalIndex | None = lexical_index
 
     def summarization_node(state: ZoriState) -> dict:
-        nonlocal _metadata_store
+        nonlocal _metadata_store, _lexical_index
         if _metadata_store is None:
             _metadata_store = MetadataStore()
+        if _lexical_index is None:
+            _lexical_index = LexicalIndex()
 
         item_key = state["target_key"]
         meta = _metadata_store.get(item_key)
@@ -62,19 +64,9 @@ def make_summarization_node(
             response = "I couldn't find metadata for that paper. It may not have been ingested yet."
             return {"response": response, "messages": [AIMessage(content=response)]}
 
-        attachment_key = _metadata_store.get_attachment_key(item_key)
-        if not attachment_key:
-            response = f'No PDF found for "{meta.get("title", item_key)}".'
-            return {"response": response, "messages": [AIMessage(content=response)]}
-
-        try:
-            pdf_bytes = zotero_client.download_pdf(attachment_key)
-            text = parser.extract_text(pdf_bytes)
-        except ValueError as e:
-            response = f"Could not read the PDF: {e}"
-            return {"response": response, "messages": [AIMessage(content=response)]}
-        except Exception as e:
-            response = f"Failed to download the PDF: {e}"
+        text = _lexical_index.get_full_text(item_key)
+        if not text.strip():
+            response = f'No text found for "{meta.get("title", item_key)}". Try re-ingesting the library.'
             return {"response": response, "messages": [AIMessage(content=response)]}
 
         try:
