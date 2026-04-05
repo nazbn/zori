@@ -7,7 +7,8 @@ from rich.console import Console
 from zori.ingestion.pdf import PDFParser
 from zori.ingestion.zotero import ZoteroClient, ZoteroItem
 from zori.retrieval.lexical import LexicalIndex
-from zori.retrieval.vectorstore import ChromaVectorStore, MetadataStore
+from zori.retrieval.metadata import MetadataStore
+from zori.retrieval.vector import ChromaVectorStore
 
 console = Console()
 

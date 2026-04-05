@@ -1,7 +1,7 @@
 import pytest
 
 from zori.agents.paper_finder import _group_by_paper
-from zori.agents.retrieval import (
+from zori.retrieval.formatting import (
     format_authors,
     format_results,
     zotero_link,

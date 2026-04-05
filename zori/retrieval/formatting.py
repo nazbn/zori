@@ -1,5 +1,3 @@
-# Formatting helpers used by paper_finder, summarization, writer, and the CLI.
-
 from zori.retrieval.search import SearchResult
 
 

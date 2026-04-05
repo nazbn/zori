@@ -1,7 +1,7 @@
 import pytest
 
 from zori.ingestion.zotero import ZoteroAttachment, ZoteroItem
-from zori.retrieval.vectorstore import MetadataStore
+from zori.retrieval.metadata import MetadataStore
 
 
 @pytest.fixture

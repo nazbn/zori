@@ -4,7 +4,7 @@ from langchain_core.messages import AIMessage
 from pydantic import BaseModel
 
 from zori.agents.graph import ZoriState
-from zori.agents.retrieval import format_authors, format_results, zotero_link
+from zori.retrieval.formatting import format_authors, format_results, zotero_link
 from zori.retrieval.search import SearchResult, SearchService
 
 MAX_DISPLAY = 5

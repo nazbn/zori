@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-from zori.retrieval.vectorstore import ChunkResult, ChromaVectorStore, MetadataStore
+from zori.retrieval.metadata import MetadataStore
+from zori.retrieval.vector import ChunkResult, ChromaVectorStore
 
 
 @dataclass

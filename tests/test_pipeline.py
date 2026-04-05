@@ -4,7 +4,7 @@ import pytest
 
 from zori.ingestion.pipeline import IngestionPipeline
 from zori.ingestion.zotero import ZoteroAttachment, ZoteroItem
-from zori.retrieval.vectorstore import MetadataStore
+from zori.retrieval.metadata import MetadataStore
 
 
 def _make_item(key="P1", version=1, with_pdf=True):

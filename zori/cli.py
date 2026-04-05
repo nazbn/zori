@@ -9,14 +9,15 @@ from langchain_core.messages import HumanMessage
 from rich.console import Console
 
 from zori.agents.graph import ZoriState, build_graph
-from zori.agents.retrieval import format_results
+from zori.retrieval.formatting import format_results
 from zori.config import load_config
 from zori.ingestion.pipeline import IngestionPipeline
 from zori.ingestion.zotero import ZoteroClient
-from zori.llm.client import get_embed_fn, get_llm
+from zori.llm.providers import get_embed_fn, get_llm
 from zori.retrieval.lexical import LexicalIndex
 from zori.retrieval.search import SearchService
-from zori.retrieval.vectorstore import MetadataStore, create_vector_store
+from zori.retrieval.metadata import MetadataStore
+from zori.retrieval.vector import create_vector_store
 
 app = typer.Typer(help="Zori — your personal research assistant.")
 console = Console()

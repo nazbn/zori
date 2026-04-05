@@ -3,7 +3,7 @@ from typing import Callable
 from langchain_core.messages import AIMessage
 
 from zori.agents.graph import ZoriState
-from zori.agents.retrieval import zotero_link
+from zori.retrieval.formatting import zotero_link
 from zori.ingestion.zotero import ZoteroClient
 
 

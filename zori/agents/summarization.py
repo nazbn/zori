@@ -5,10 +5,10 @@ from langchain_core.messages import AIMessage, SystemMessage
 from pydantic import BaseModel
 
 from zori.agents.graph import ZoriState
-from zori.agents.retrieval import format_authors, zotero_link
+from zori.retrieval.formatting import format_authors, zotero_link
 from zori.ingestion.zotero import ZoteroClient
 from zori.retrieval.lexical import LexicalIndex
-from zori.retrieval.vectorstore import MetadataStore
+from zori.retrieval.metadata import MetadataStore
 
 SYSTEM_PROMPT = """You are a research assistant summarizing an academic paper.
 Produce a clear, structured summary for a researcher who wants to quickly understand
