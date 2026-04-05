@@ -48,6 +48,11 @@ def make_router_node(llm: BaseChatModel) -> Callable[[ZoriState], dict]:
     structured_llm = llm.with_structured_output(RouterOutput)
 
     def router_node(state: ZoriState) -> dict:
+        # If a confirmation is pending (yes/no reply), skip LLM classification —
+        # routing is handled by _route_from_router based on confirmation_type.
+        if state.get("pending_confirmation"):
+            return {}
+
         results_context = _format_results_for_prompt(state.get("search_results", []))
         system_content = SYSTEM_PROMPT
         if results_context:

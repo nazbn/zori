@@ -14,6 +14,7 @@ from zori.config import load_config
 from zori.ingestion.pipeline import IngestionPipeline
 from zori.ingestion.zotero import ZoteroClient
 from zori.llm.client import get_embed_fn, get_llm
+from zori.retrieval.lexical import LexicalIndex
 from zori.retrieval.search import SearchService
 from zori.retrieval.vectorstore import MetadataStore, create_vector_store
 
@@ -27,6 +28,7 @@ class Services:
     metadata_store: MetadataStore
     search_service: SearchService
     pipeline: IngestionPipeline
+    lexical_index: LexicalIndex
 
 
 def _init_services() -> tuple[Services, object]:
@@ -41,10 +43,11 @@ def _init_services() -> tuple[Services, object]:
     embed_fn = get_embed_fn(config)
     vector_store = create_vector_store(config.vector_store.persist_directory, embed_fn)
     metadata_store = MetadataStore()
+    lexical_index = LexicalIndex()
     search_service = SearchService(vector_store, metadata_store)
-    pipeline = IngestionPipeline(zotero, vector_store, metadata_store)
+    pipeline = IngestionPipeline(zotero, vector_store, metadata_store, lexical_index)
 
-    return Services(zotero, metadata_store, search_service, pipeline), config
+    return Services(zotero, metadata_store, search_service, pipeline, lexical_index), config
 
 
 def _fresh_state() -> dict:

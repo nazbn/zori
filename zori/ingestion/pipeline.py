@@ -6,6 +6,7 @@ from rich.console import Console
 
 from zori.ingestion.pdf import PDFParser
 from zori.ingestion.zotero import ZoteroClient, ZoteroItem
+from zori.retrieval.lexical import LexicalIndex
 from zori.retrieval.vectorstore import ChromaVectorStore, MetadataStore
 
 console = Console()
@@ -23,10 +24,17 @@ class IngestionResult:
 
 
 class IngestionPipeline:
-    def __init__(self, zotero: ZoteroClient, vector_store: ChromaVectorStore, metadata_store: MetadataStore):
+    def __init__(
+        self,
+        zotero: ZoteroClient,
+        vector_store: ChromaVectorStore,
+        metadata_store: MetadataStore,
+        lexical_index: LexicalIndex | None = None,
+    ):
         self._zotero = zotero
         self._vector_store = vector_store
         self._metadata_store = metadata_store
+        self._lexical_index = lexical_index
         self._parser = PDFParser()
         self._state = self._load_state()
 
@@ -95,9 +103,14 @@ class IngestionPipeline:
         if self._state.get("ingested", {}).get(item.key) is not None:
             self._vector_store.delete_item(item.key)
             self._metadata_store.delete(item.key)
+            if self._lexical_index:
+                self._lexical_index.delete_item(item.key)
 
         self._vector_store.add_chunks(chunks)
         self._metadata_store.save(item)
+        if self._lexical_index:
+            self._lexical_index.add_paper(item)
+            self._lexical_index.add_chunks(chunks)
 
     def _print_summary(self, result: IngestionResult) -> None:
         parts = [f"[green]{result.ingested} ingested[/green]"]
