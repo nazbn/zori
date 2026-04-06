@@ -3,78 +3,79 @@
 An open-source multi-agent research assistant that connects to your Zotero library.
 Search, summarize, and explore your research papers through a conversational interface.
 
+![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-orange)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-0.5+-purple)
+![License](https://img.shields.io/badge/License-MIT-green)
+![PyPI](https://img.shields.io/pypi/v/zori)
+
 ## Requirements
 
-- Python 3.10+
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) (recommended) or pip
 - A Zotero account with API access
-- OpenAI, Anthropic, or [Ollama](https://ollama.com) (free, local)
+- An LLM provider: OpenAI, Anthropic, or [Ollama](https://ollama.com) (free, runs locally)
 
 ## Setup
 
-### Install from PyPI
+**1. Install**
+
 ```bash
 pip install zori
-mkdir my-zori && cd my-zori
-zori init
 ```
 
-### Install from source
+<details>
+<summary>Install from source</summary>
+
 ```bash
 git clone https://github.com/nazbn/zori.git
 cd zori
 uv sync
-uv run zori init
 ```
 
-`zori init` creates `config.yaml` and `.env` in the current directory.
-Always run `zori` from this directory.
+When installed from source, prefix all commands with `uv run` (e.g. `uv run zori init`, `uv run zori ingest`, `uv run zori`).
+</details>
 
-**Configure `.env`:**
+**2. Initialize**
+
+```bash
+mkdir my-zori && cd my-zori
+zori init
 ```
-ZOTERO_API_KEY=...       # from zotero.org/settings/keys
-ZOTERO_LIBRARY_ID=...    # your numeric user ID, shown on the same page
-OPENAI_API_KEY=...       # or ANTHROPIC_API_KEY, depending on your config
-```
 
-**Configure `config.yaml`:** set your preferred LLM and embeddings provider (see [LLM options](#llm-options)).
+`zori init` creates `config.yaml` and `.env` in the current directory. Always run `zori` from this directory.
 
-**Ingest your library:**
+**3. Configure**
+
+Edit `.env` with your Zotero API key and library ID, and `config.yaml` to choose your LLM and embeddings provider (see [LLM options](#llm-options) and [Embeddings options](#embeddings-options)).
+
+**4. Ingest your library**
 ```bash
 zori ingest
 ```
 Downloads your Zotero PDFs, extracts text, and builds the search index in `.zori/`.
-Run time depends on library size. You only need to do a full ingest once.
+Run time depends on library size and embedding provider. You only need to do a full ingest once.
+To index new or modified items added to Zotero since the last ingest, run `zori ingest --sync`.
 
-**Start the assistant:**
+**5. Start the assistant**
 ```bash
 zori
 ```
 
 ## Usage
 
-Once the REPL is running, just type naturally:
+Zori supports natural language queries for searching and summarizing papers:
 
 ```
 > papers on diffusion models
-> show me work by Rombach
+> papers by Vaswani
 > papers from 2023 on neural radiance fields
 > summarize the first one
-> find the attention paper
+> find attention is all you need
 > summarize it
 ```
 
-Zori uses hybrid search (keyword + semantic) and understands follow-up references like
-"the first one" or "that last result".
+Queries use hybrid search (keyword + semantic). References to previous results are resolved in context (e.g. "the first one", "that paper").
 
 Type `exit` to quit, `--new-session` to reset conversation history.
-
-## Ingestion commands
-
-```bash
-uv run zori ingest           # full ingest (first run or rebuild)
-uv run zori ingest --sync    # sync new/modified items only
-```
 
 ## LLM options
 
@@ -84,17 +85,28 @@ uv run zori ingest --sync    # sync new/modified items only
 | Anthropic | `provider: anthropic` | `ANTHROPIC_API_KEY` in `.env` |
 | Ollama (free, local) | `provider: ollama` | [Ollama](https://ollama.com) running locally |
 
-The same providers are available for embeddings. If you use Ollama for both LLM and embeddings,
-no API keys are needed.
+## Embeddings options
 
-## Tips
+LLM and embeddings are configured independently — any combination works.
 
-- **Debug mode:** `uv run zori --debug` prints agent decisions and search plans to help troubleshoot unexpected results.
-- **HuggingFace embeddings:** install with `uv sync --extra huggingface` and set `provider: huggingface` in `config.yaml`.
+| Provider | `config.yaml` | Setup |
+|---|---|---|
+| OpenAI | `provider: openai`, `model: text-embedding-3-small` | `OPENAI_API_KEY` in `.env` |
+| Ollama (free, local) | `provider: ollama`, `model: nomic-embed-text` | Ollama running + `ollama pull nomic-embed-text` |
+| HuggingFace (free, local) | `provider: huggingface`, `model: <model>` (e.g. `all-MiniLM-L6-v2`) | `pip install "zori[huggingface]"` |
 
-## Running tests
+If you use Ollama for both LLM and embeddings, no API keys are needed.
 
-```bash
-uv sync --extra dev
-uv run pytest tests/
-```
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## Contact
+
+For questions, bug reports, or feature requests, open an issue on [GitHub](https://github.com/nazbn/zori/issues)
+or reach out at nazanin.bagherinejad@rwth-aachen.de.
+
+---
+
+*This repository was developed with the assistance of [Claude](https://claude.ai) (Anthropic).*
+
