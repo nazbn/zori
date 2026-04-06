@@ -1,3 +1,4 @@
+import logging
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="langchain_core")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="chromadb")
@@ -68,8 +69,13 @@ def _fresh_state() -> dict:
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context):
+def main(
+    ctx: typer.Context,
+    debug: bool = typer.Option(False, "--debug", help="Enable debug logging."),
+):
     """Launch the interactive REPL."""
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
     if ctx.invoked_subcommand is None:
         _repl()
 

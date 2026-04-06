@@ -1,7 +1,10 @@
+import logging
 from typing import Callable
 
 from langchain_core.messages import AIMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+logger = logging.getLogger(__name__)
 
 from zori.agents.graph import ZoriState
 from zori.retrieval.formatting import format_authors, format_results, zotero_link
@@ -24,6 +27,16 @@ class SearchPlan(BaseModel):
     lexical_query: str | None = None    # BM25 on papers_fts + chunks_fts
     semantic_query: str | None = None   # ChromaDB vector search
 
+    @field_validator("title", "author", "year", "lexical_query", "semantic_query", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        return None if v == "" else v
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def empty_list_to_none(cls, v):
+        return None if v == [] else v
+
 
 # ---------------------------------------------------------------------------
 # Node factory
@@ -33,18 +46,23 @@ _QUERY_ANALYZER_PROMPT = """\
 You help find papers in a personal research library.
 Analyze the query and fill the search plan fields:
 
-- display_query: the core topic or paper name (cleaned up, never the full raw query with filler words)
-- title: set ONLY when the user names a specific paper, acronym, or tool \
-(e.g. "TEASER", "attention is all you need", "BERT") — triggers high-precision title search
-- author: person name if mentioned
-- year: publication year if mentioned
-- tags: domain keywords if mentioned (e.g. ["super-resolution", "DEM"])
-- lexical_query: BM25 keyword query — use for specific technical terms, method names, \
-acronyms, or when the user wants an exact phrase; omit for purely broad/conceptual queries
-- semantic_query: embedding search query — always set this to the core topic phrase
+- display_query: the core topic, paper name, or author name (cleaned up, never filler words)
+- title: the name of a specific paper, system, or acronym the user is asking for by name
+- author: a researcher's name the user wants to filter by
+- year: a publication year the user wants to filter by
+- tags: domain keywords the user wants to filter by
+- lexical_query: keyword query for BM25 search — use when the query contains specific \
+technical terms, method names, or acronyms that should appear in the text
+- semantic_query: query for embedding search — use when the user is asking about a \
+topic or concept that requires understanding meaning, not just keyword matching
 
-Always set semantic_query. Set lexical_query when there are specific keywords or technical terms.
-Set title only for specific paper or tool names — not for topic searches.
+The key principle: structured fields (author, year, tags, title) are filters — use them \
+whenever the user's intent is to narrow by a known attribute. \
+lexical_query and semantic_query are content searches — use them when the user wants \
+to find papers about a subject. A query can use filters only, content search only, or both.
+
+When in doubt, fill in more fields rather than fewer. Redundant signals improve recall; \
+missing signals lose results entirely.
 
 Query: {query}"""
 
@@ -64,6 +82,13 @@ def make_paper_finder_node(
 
         plan: SearchPlan = query_analyzer.invoke(
             _QUERY_ANALYZER_PROMPT.format(query=query)
+        )
+
+        logger.debug(
+            "SearchPlan: display_query=%r title=%r author=%r year=%r tags=%r "
+            "lexical_query=%r semantic_query=%r",
+            plan.display_query, plan.title, plan.author, plan.year, plan.tags,
+            plan.lexical_query, plan.semantic_query,
         )
 
         results = search_service.hybrid_search(
