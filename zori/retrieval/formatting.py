@@ -22,11 +22,13 @@ def format_results(query: str, results: list[SearchResult]) -> str:
     for i, r in enumerate(results, 1):
         authors = format_authors(r.authors)
         year = r.year or "?"
-        preview = r.text[:150].strip().replace("\n", " ")
-        if len(r.text) > 150:
-            preview += "..."
         lines.append(f"{i}. {r.title} — {authors} ({year})")
-        lines.append(f'   "{preview}"')
+        # TODO: re-enable once section titles filter out reference chunks (v2)
+        # if r.text:
+        #     preview = r.text[:150].strip().replace("\n", " ")
+        #     if len(r.text) > 150:
+        #         preview += "..."
+        #     lines.append(f'   "{preview}"')
         lines.append(f"   {zotero_link(r.item_key)}")
         lines.append("")
 

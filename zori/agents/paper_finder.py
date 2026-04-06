@@ -24,15 +24,15 @@ class SearchPlan(BaseModel):
     author: str | None = None
     year: str | None = None
     tags: list[str] | None = None
-    lexical_query: str | None = None    # BM25 on papers_fts + chunks_fts
-    semantic_query: str | None = None   # ChromaDB vector search
+    lexical_queries: list[str] | None = None  # one or more BM25 queries on papers_fts + chunks_fts
+    semantic_query: str | None = None          # ChromaDB vector search
 
-    @field_validator("title", "author", "year", "lexical_query", "semantic_query", mode="before")
+    @field_validator("title", "author", "year", "semantic_query", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
         return None if v == "" else v
 
-    @field_validator("tags", mode="before")
+    @field_validator("tags", "lexical_queries", mode="before")
     @classmethod
     def empty_list_to_none(cls, v):
         return None if v == [] else v
@@ -51,8 +51,9 @@ Analyze the query and fill the search plan fields:
 - author: a researcher's name the user wants to filter by
 - year: a publication year the user wants to filter by
 - tags: domain keywords the user wants to filter by
-- lexical_query: keyword query for BM25 search — use when the query contains specific \
-technical terms, method names, or acronyms that should appear in the text
+- lexical_queries: list of BM25 keyword queries — provide multiple when the query \
+can be expressed in different ways (e.g. an acronym and its expansion, or a term \
+and a related synonym); each runs as a separate BM25 search and results are combined
 - semantic_query: query for embedding search — use when the user is asking about a \
 topic or concept that requires understanding meaning, not just keyword matching
 
@@ -74,11 +75,16 @@ def make_paper_finder_node(
     query_analyzer = llm.with_structured_output(SearchPlan)
 
     def paper_finder_node(state: ZoriState) -> dict:
+        logger.debug(
+            "[paper_finder] query=%r intent=%r pending=%s target_key=%r",
+            state.get("query"), state.get("intent"),
+            state.get("pending_confirmation"), state.get("target_key"),
+        )
         if state.get("pending_confirmation"):
             return _handle_confirmation(state)
 
         query = state["query"]
-        mode = state.get("search_mode", "display")
+        mode = "find_for_summarize" if state.get("intent") == "summarize" else "display"
 
         plan: SearchPlan = query_analyzer.invoke(
             _QUERY_ANALYZER_PROMPT.format(query=query)
@@ -86,13 +92,13 @@ def make_paper_finder_node(
 
         logger.debug(
             "SearchPlan: display_query=%r title=%r author=%r year=%r tags=%r "
-            "lexical_query=%r semantic_query=%r",
+            "lexical_queries=%r semantic_query=%r",
             plan.display_query, plan.title, plan.author, plan.year, plan.tags,
-            plan.lexical_query, plan.semantic_query,
+            plan.lexical_queries, plan.semantic_query,
         )
 
         results = search_service.hybrid_search(
-            lexical_query=plan.lexical_query,
+            lexical_queries=plan.lexical_queries,
             semantic_query=plan.semantic_query,
             title=plan.title,
             author=plan.author,
@@ -101,6 +107,7 @@ def make_paper_finder_node(
         )
 
         final = _group_by_paper(results)[:MAX_DISPLAY]
+        logger.debug("[paper_finder] → %d result(s): %s", len(final), [r.item_key for r in final])
 
         # ---- Display mode (intent = "search") ----
         if mode == "display":

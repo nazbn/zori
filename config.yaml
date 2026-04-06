@@ -1,6 +1,6 @@
 llm:
   provider: ollama
-  model: llama3.2
+  model: llama3.1
   temperature: 0.2
 
 embeddings:

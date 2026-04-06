@@ -1,3 +1,4 @@
+import logging
 from typing import Callable, Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -6,6 +7,8 @@ from pydantic import BaseModel
 
 from zori.agents.graph import ZoriState
 from zori.retrieval.search import SearchResult
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are Zori, a research assistant for a personal Zotero library.
 You help researchers search, summarize, and explore their papers.
@@ -48,6 +51,11 @@ def make_router_node(llm: BaseChatModel) -> Callable[[ZoriState], dict]:
     structured_llm = llm.with_structured_output(RouterOutput)
 
     def router_node(state: ZoriState) -> dict:
+        logger.debug(
+            "[router] query=%r pending=%s confirmation_type=%r target_key=%r",
+            state.get("query"), state.get("pending_confirmation"),
+            state.get("confirmation_type"), state.get("target_key"),
+        )
         # If a confirmation is pending (yes/no reply), skip LLM classification —
         # routing is handled by _route_from_router based on confirmation_type.
         if state.get("pending_confirmation"):
@@ -61,10 +69,7 @@ def make_router_node(llm: BaseChatModel) -> Callable[[ZoriState], dict]:
         messages = [SystemMessage(content=system_content)] + state["messages"]
         output: RouterOutput = structured_llm.invoke(messages)
 
-        updates: dict = {
-            "intent": output.intent,
-            "search_mode": "find_for_summarize" if output.intent == "summarize" else "display",
-        }
+        updates: dict = {"intent": output.intent}
 
         if output.intent == "summarize":
             updates["target_key"] = output.target_key
@@ -73,6 +78,10 @@ def make_router_node(llm: BaseChatModel) -> Callable[[ZoriState], dict]:
             updates["response"] = output.response
             updates["messages"] = [AIMessage(content=output.response)]
 
+        logger.debug(
+            "[router] → intent=%r target_key=%r",
+            updates.get("intent"), updates.get("target_key"),
+        )
         return updates
 
     return router_node

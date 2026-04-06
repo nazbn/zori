@@ -57,7 +57,6 @@ def _fresh_state() -> dict:
         "messages": [],
         "query": "",
         "intent": "",
-        "search_mode": "display",
         "target_key": None,
         "search_results": [],
         "summary": None,
@@ -75,7 +74,9 @@ def main(
 ):
     """Launch the interactive REPL."""
     if debug:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s: %(message)s")
+        for noisy in ("httpcore", "httpx", "urllib3", "chromadb", "pyzotero"):
+            logging.getLogger(noisy).setLevel(logging.WARNING)
     if ctx.invoked_subcommand is None:
         _repl()
 

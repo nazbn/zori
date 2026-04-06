@@ -15,12 +15,12 @@ class SearchResult:
     score: float
 
 
-def _rrf_combine(ranked_lists: list[list[str]], k: int = 60) -> list[str]:
-    """Reciprocal Rank Fusion. Returns item_keys ordered by combined RRF score."""
+def _rrf_combine(ranked_lists: list[list[str]], weights: list[float], k: int = 60) -> list[str]:
+    """Weighted Reciprocal Rank Fusion. Returns item_keys ordered by combined RRF score."""
     scores: dict[str, float] = {}
-    for ranked in ranked_lists:
+    for ranked, weight in zip(ranked_lists, weights):
         for rank, item_key in enumerate(ranked):
-            scores[item_key] = scores.get(item_key, 0.0) + 1.0 / (k + rank + 1)
+            scores[item_key] = scores.get(item_key, 0.0) + weight / (k + rank + 1)
     return sorted(scores, key=lambda x: scores[x], reverse=True)
 
 
@@ -37,7 +37,7 @@ class SearchService:
 
     def hybrid_search(
         self,
-        lexical_query: str | None = None,
+        lexical_queries: list[str] | None = None,
         semantic_query: str | None = None,
         title: str | None = None,
         author: str | None = None,
@@ -47,37 +47,48 @@ class SearchService:
     ) -> list[SearchResult]:
         """Always-hybrid search: lexical + semantic run in parallel, combined via RRF.
 
-        Metadata fields (author/year/tags) act as pre-filters on both retrievers.
+        author and year act as hard pre-filters; tags score via RRF not as a filter.
         `title` triggers high-precision FTS5 scoped to the title column.
         """
-        # 1. Metadata pre-filter
+        # 1. Metadata pre-filter (author and year only — tags score via RRF)
         filter_keys: set[str] | None = None
-        if author or year or tags:
+        if author or year:
             keys = self._metadata_store.filter(
                 year=year,
-                tags=tags,
                 authors=[author] if author else None,
             )
             filter_keys = set(keys)
 
-        # 2. Collect ranked lists + track vector chunk text
+        # 2. Collect ranked lists + weights + track vector chunk text
         ranked_lists: list[list[str]] = []
+        weights: list[float] = []
         vector_chunks: dict[str, ChunkResult] = {}
+
+        # Tag-scoped BM25
+        if tags and self._lexical_index:
+            tag_hits = [k for k, _ in self._lexical_index.search_tags(tags)]
+            if tag_hits:
+                ranked_lists.append(tag_hits)
+                weights.append(3.0)
 
         # Title-scoped BM25 (high precision for specific paper/acronym lookup)
         if title and self._lexical_index:
             title_keys = self._lexical_index.search_title(title)
             if title_keys:
                 ranked_lists.append(title_keys)
+                weights.append(3.0)
 
-        # Lexical BM25 on papers_fts and chunks_fts
-        if lexical_query and self._lexical_index:
-            paper_hits = [k for k, _ in self._lexical_index.search_papers(lexical_query)]
-            if paper_hits:
-                ranked_lists.append(paper_hits)
-            chunk_hits = [k for k, _ in self._lexical_index.search_chunks(lexical_query)]
-            if chunk_hits:
-                ranked_lists.append(chunk_hits)
+        # Lexical BM25 on papers_fts and chunks_fts — one ranked list per query
+        if lexical_queries and self._lexical_index:
+            for lq in lexical_queries:
+                paper_hits = [k for k, _ in self._lexical_index.search_papers(lq)]
+                if paper_hits:
+                    ranked_lists.append(paper_hits)
+                    weights.append(3.0)
+                chunk_hits = [k for k, _ in self._lexical_index.search_chunks(lq)]
+                if chunk_hits:
+                    ranked_lists.append(chunk_hits)
+                    weights.append(2.0)
 
         # Vector (semantic) search
         if semantic_query:
@@ -93,14 +104,15 @@ class SearchService:
                         vector_chunks[c.item_key] = c
                 if vec_keys:
                     ranked_lists.append(vec_keys)
+                    weights.append(1.0)
             except Exception:
                 pass
 
         if not ranked_lists:
             return []
 
-        # 3. RRF combine
-        combined = _rrf_combine(ranked_lists)
+        # 3. Weighted RRF combine
+        combined = _rrf_combine(ranked_lists, weights)
 
         # 4. Apply metadata filter (lexical results may include out-of-filter papers)
         if filter_keys is not None:

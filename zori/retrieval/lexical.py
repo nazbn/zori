@@ -89,7 +89,7 @@ class LexicalIndex:
             return []
         try:
             rows = self._conn.execute(
-                "SELECT item_key, bm25(papers_fts, 0.0, 10.0, 5.0, 2.0) AS score "
+                "SELECT item_key, bm25(papers_fts, 0.0, 1.0, 1.0, 1.0) AS score "
                 "FROM papers_fts WHERE papers_fts MATCH ? ORDER BY score LIMIT ?",
                 (fts_q, top_k),
             ).fetchall()
@@ -117,6 +117,23 @@ class LexicalIndex:
                 best[key] = score
         return sorted(best.items(), key=lambda x: x[1])[:top_k]
 
+    def search_tags(self, tags: list[str], top_k: int = 20) -> list[tuple[str, float]]:
+        """BM25 search scoped to the tags column. Returns (item_key, score) sorted best-first."""
+        terms = " OR ".join(
+            f'"{self._fts_query(t)}"' for t in tags if self._fts_query(t)
+        )
+        if not terms:
+            return []
+        try:
+            rows = self._conn.execute(
+                "SELECT item_key, bm25(papers_fts) AS score "
+                "FROM papers_fts WHERE papers_fts MATCH ? ORDER BY score LIMIT ?",
+                (f"tags : ({terms})", top_k),
+            ).fetchall()
+            return [(r["item_key"], r["score"]) for r in rows]
+        except Exception:
+            return []
+
     def search_title(self, title: str, top_k: int = 5) -> list[str]:
         """High-precision FTS5 lookup scoped to the title column only."""
         escaped = title.replace('"', '""')
@@ -129,6 +146,31 @@ class LexicalIndex:
             return [r["item_key"] for r in rows]
         except Exception:
             return []
+
+    def get_snippet(self, item_key: str, query: str) -> str:
+        """Return the text of the best BM25-matching chunk for item_key given query.
+
+        Falls back to the first chunk if the query produces no FTS match.
+        """
+        fts_q = self._fts_query(query)
+        if fts_q:
+            try:
+                row = self._conn.execute(
+                    "SELECT chunk_text FROM chunks_fts "
+                    "WHERE item_key = ? AND chunks_fts MATCH ? "
+                    "ORDER BY bm25(chunks_fts) LIMIT 1",
+                    (item_key, fts_q),
+                ).fetchone()
+                if row:
+                    return row["chunk_text"]
+            except Exception:
+                pass
+        # fallback: first chunk in order
+        row = self._conn.execute(
+            "SELECT chunk_text FROM chunks_fts WHERE item_key = ? ORDER BY chunk_index LIMIT 1",
+            (item_key,),
+        ).fetchone()
+        return row["chunk_text"] if row else ""
 
     def get_full_text(self, item_key: str) -> str:
         """Reconstruct the full paper text from stored chunks, ordered by chunk_index."""

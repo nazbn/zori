@@ -14,7 +14,6 @@ class ZoriState(TypedDict):
     messages: Annotated[list[BaseMessage], operator.add]
     query: str
     intent: str                        # "search" | "summarize" | "general"
-    search_mode: str                   # "display" | "find_for_summarize"
     target_key: str | None             # Zotero item key, set before summarization
     search_results: list[SearchResult]
     summary: str | None

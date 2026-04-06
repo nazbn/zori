@@ -1,3 +1,4 @@
+import logging
 from typing import Callable
 
 from langchain_core.messages import AIMessage
@@ -5,6 +6,8 @@ from langchain_core.messages import AIMessage
 from zori.agents.graph import ZoriState
 from zori.retrieval.formatting import zotero_link
 from zori.ingestion.zotero import ZoteroClient
+
+logger = logging.getLogger(__name__)
 
 
 def _format_note_html(summary: dict) -> str:
@@ -20,6 +23,10 @@ def _format_note_html(summary: dict) -> str:
 
 def make_writer_node(zotero_client: ZoteroClient) -> Callable[[ZoriState], dict]:
     def writer_node(state: ZoriState) -> dict:
+        logger.debug(
+            "[writer] query=%r target_key=%r has_summary=%s",
+            state.get("query"), state.get("target_key"), state.get("summary") is not None,
+        )
         reply = state["query"].strip().lower()
 
         # User declined

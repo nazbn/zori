@@ -11,7 +11,6 @@ def _fresh_state(**overrides) -> dict:
         "messages": [],
         "query": "",
         "intent": "",
-        "search_mode": "display",
         "target_key": None,
         "search_results": [],
         "summary": None,
@@ -45,7 +44,6 @@ class TestRouter:
         )
         result = node(state)
         assert result["intent"] == "search"
-        assert result["search_mode"] == "display"
 
     def test_summarize_intent_with_key(self, router_node):
         node, mock_llm = router_node
@@ -58,7 +56,6 @@ class TestRouter:
         result = node(state)
         assert result["intent"] == "summarize"
         assert result["target_key"] == "ABC123"
-        assert result["search_mode"] == "find_for_summarize"
 
     def test_general_intent_returns_response(self, router_node):
         node, mock_llm = router_node
@@ -104,7 +101,7 @@ class TestPaperFinder:
     def test_display_mode_returns_results(self, search_service, mock_llm):
         from zori.agents.paper_finder import make_paper_finder_node
         node = make_paper_finder_node(search_service, mock_llm)
-        state = _fresh_state(query="transformers", search_mode="display",
+        state = _fresh_state(query="transformers", intent="search",
                              messages=[HumanMessage(content="transformers")])
         result = node(state)
         assert len(result["search_results"]) == 1
@@ -113,7 +110,7 @@ class TestPaperFinder:
     def test_find_for_summarize_asks_confirmation(self, search_service, mock_llm):
         from zori.agents.paper_finder import make_paper_finder_node
         node = make_paper_finder_node(search_service, mock_llm)
-        state = _fresh_state(query="attention paper", search_mode="find_for_summarize",
+        state = _fresh_state(query="attention paper", intent="summarize",
                              messages=[HumanMessage(content="attention paper")])
         result = node(state)
         assert result["pending_confirmation"] is True
