@@ -138,6 +138,38 @@ def _repl():
 
 
 @app.command()
+def init():
+    """Create config.yaml and .env in the current directory from built-in templates."""
+    import importlib.resources as pkg_resources
+    import shutil
+
+    templates = pkg_resources.files("zori.templates")
+    created = []
+    skipped = []
+
+    for filename, dest in [("config.yaml.example", "config.yaml"), (".env.example", ".env")]:
+        target = Path(dest)
+        if target.exists():
+            skipped.append(dest)
+        else:
+            src = templates.joinpath(filename)
+            target.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            created.append(dest)
+
+    for f in created:
+        console.print(f"[green]Created[/green] {f}")
+    for f in skipped:
+        console.print(f"[yellow]Skipped[/yellow] {f} (already exists)")
+
+    if created:
+        console.print("\nNext steps:")
+        console.print("  1. Edit [bold].env[/bold] with your Zotero API key and library ID")
+        console.print("  2. Edit [bold]config.yaml[/bold] to choose your LLM provider")
+        console.print("  3. Run [bold]zori ingest[/bold] to index your library")
+        console.print("  4. Run [bold]zori[/bold] to start the assistant")
+
+
+@app.command()
 def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified items only (skips items already ingested).")):
     """Ingest your Zotero library. Downloads PDFs, extracts text, and builds the search index.
     Run without --sync for a full ingest, or with --sync to pick up new items since last run."""

@@ -1,0 +1,33 @@
+# LLM Backend
+llm:
+  provider: openai          # openai | anthropic | ollama
+  model: gpt-4o             # openai: gpt-4o, gpt-4o-mini
+                            # anthropic: claude-sonnet-4-6, claude-haiku-4-5-20251001
+                            # ollama: llama3.1, llama3.2 (must be running locally)
+  temperature: 0.2
+
+# Embeddings
+embeddings:
+  provider: openai          # openai | huggingface | ollama
+  model: text-embedding-3-small  # openai: text-embedding-3-small
+                                 # ollama: nomic-embed-text
+                                 # huggingface: any sentence-transformers model
+
+# Vector Store
+vector_store:
+  provider: chroma          # only chroma supported in v1
+  persist_directory: .zori/chroma
+
+# Ingestion
+ingestion:
+  sync_on_startup: false    # set to true to check Zotero for new items on every launch
+  chunk_size: 1000          # characters per chunk (increase for more context, decrease for precision)
+  chunk_overlap: 200        # overlap between chunks to preserve context at boundaries
+
+# Zotero
+zotero:
+  # library_id can also be set as ZOTERO_LIBRARY_ID in .env (takes precedence)
+  library_id: YOUR_LIBRARY_ID   # find at: zotero.org/settings/keys
+  library_type: user            # user | group
+  # api_key must be set as ZOTERO_API_KEY in .env
+
