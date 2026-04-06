@@ -1,7 +1,10 @@
+import logging
 from dataclasses import dataclass
 
 from zori.retrieval.metadata import MetadataStore
 from zori.retrieval.vector import ChunkResult, ChromaVectorStore
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -105,8 +108,8 @@ class SearchService:
                 if vec_keys:
                     ranked_lists.append(vec_keys)
                     weights.append(1.0)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Vector search failed, skipping: %s", e)
 
         if not ranked_lists:
             return []
@@ -136,33 +139,3 @@ class SearchService:
 
         return results
 
-    def vector_search(
-        self,
-        query: str,
-        top_k: int = 10,
-        item_keys: list[str] | None = None,
-    ) -> list[SearchResult]:
-        """Semantic search over chunk embeddings."""
-        chunks = self._vector_store.search(query, top_k=top_k, item_keys=item_keys)
-        return [self._to_result(c) for c in chunks]
-
-    # kept for the CLI one-shot `zori search` command
-    def search(
-        self,
-        query: str,
-        top_k: int = 5,
-    ) -> list[SearchResult]:
-        """Simple vector search used by the standalone search command."""
-        return self.vector_search(query, top_k=top_k)
-
-    def _to_result(self, chunk: ChunkResult) -> SearchResult:
-        meta = self._metadata_store.get(chunk.item_key) or {}
-        return SearchResult(
-            text=chunk.text,
-            item_key=chunk.item_key,
-            title=meta.get("title", "Unknown"),
-            authors=meta.get("authors", []),
-            year=meta.get("year"),
-            journal=meta.get("journal"),
-            score=chunk.score,
-        )

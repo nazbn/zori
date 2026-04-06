@@ -19,7 +19,6 @@ VALID_YAML = textwrap.dedent("""
       provider: chroma
       persist_directory: .zori/chroma
     ingestion:
-      mode: batch
       sync_on_startup: false
       chunk_size: 1000
       chunk_overlap: 200

@@ -122,6 +122,61 @@ def test_search_papers_invalid_query_returns_empty(index, paper):
     assert results == []
 
 
+# ---------------------------------------------------------------------------
+# _fts_query sanitizer
+# ---------------------------------------------------------------------------
+
+def test_fts_query_hyphens_become_spaces():
+    assert LexicalIndex._fts_query("super-resolution") == "super resolution"
+
+
+def test_fts_query_only_operators_returns_empty_string():
+    assert LexicalIndex._fts_query("---") == ""
+    assert LexicalIndex._fts_query('"') == ""
+    assert LexicalIndex._fts_query("*()[]") == ""
+
+
+def test_fts_query_quotes_removed():
+    assert LexicalIndex._fts_query('name "alice"') == "name  alice"
+
+
+def test_fts_query_parentheses_removed():
+    assert LexicalIndex._fts_query("(topic)") == "topic"
+
+
+def test_fts_query_pipe_becomes_space():
+    assert LexicalIndex._fts_query("GAN|CNN") == "GAN CNN"
+
+
+def test_fts_query_plain_text_unchanged():
+    assert LexicalIndex._fts_query("neural network") == "neural network"
+
+
+def test_fts_query_mixed_operators_and_text():
+    result = LexicalIndex._fts_query("(A OR B) AND C")
+    assert "A" in result
+    assert "B" in result
+    assert "C" in result
+    # operators and parens should be gone
+    assert "(" not in result
+    assert ")" not in result
+
+
+def test_search_papers_empty_after_sanitization_returns_empty(index, paper):
+    # Query that sanitizes to empty string should return [] without hitting FTS
+    index.add_paper(paper)
+    results = index.search_papers("---")
+    assert results == []
+
+
+def test_search_chunks_hyphenated_query_finds_match(index, chunks):
+    # "super-resolution" should match chunks containing "super" and "resolution"
+    index.add_chunks(chunks)
+    results = index.search_chunks("super-resolution")
+    keys = [r[0] for r in results]
+    assert "ABC123" in keys
+
+
 def test_tables_persist_across_connections(tmp_path, paper, chunks):
     path = tmp_path / "zori.db"
     idx1 = LexicalIndex(path=path)

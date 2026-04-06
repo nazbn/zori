@@ -4,6 +4,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from zori.agents.graph import ZoriState
+from zori.agents.summarization import SummaryOutput
 
 
 def _fresh_state(**overrides) -> dict:
@@ -192,3 +193,101 @@ class TestWriter:
         result = node(state)
         zotero_client.write_note.assert_not_called()
         assert result["pending_confirmation"] is False
+
+    def test_write_failure_returns_error_response(self, zotero_client):
+        from zori.agents.writer import make_writer_node
+        zotero_client.write_note.side_effect = RuntimeError("API error")
+        node = make_writer_node(zotero_client)
+        state = _fresh_state(
+            query="yes",
+            target_key="P1",
+            summary={"overview": "x", "contributions": [], "methods": "x", "findings": "x"},
+            pending_confirmation=True,
+            confirmation_type="save_summary",
+            messages=[HumanMessage(content="yes")],
+        )
+        result = node(state)
+        assert result["pending_confirmation"] is False
+        assert "failed" in result["response"].lower()
+
+
+# --- Summarization ---
+
+class TestSummarization:
+    @pytest.fixture
+    def mock_components(self):
+        metadata_store = MagicMock()
+        lexical_index = MagicMock()
+        zotero_client = MagicMock()
+        llm = MagicMock()
+
+        metadata_store.get.return_value = {
+            "title": "Test Paper", "authors": ["Smith"], "year": "2023",
+        }
+        lexical_index.get_full_text.return_value = "This is the full paper text about neural networks."
+
+        mock_output = SummaryOutput(
+            overview="A great paper.",
+            contributions=["Novel approach"],
+            methods="Deep learning",
+            findings="State-of-the-art results.",
+        )
+        structured_llm = MagicMock()
+        structured_llm.invoke.return_value = mock_output
+        llm.with_structured_output.return_value = structured_llm
+
+        return metadata_store, lexical_index, zotero_client, llm
+
+    def test_summarization_produces_structured_output(self, mock_components):
+        metadata_store, lexical_index, zotero_client, llm = mock_components
+        from zori.agents.summarization import make_summarization_node
+        node = make_summarization_node(zotero_client, llm, metadata_store, lexical_index)
+        state = _fresh_state(
+            target_key="P1",
+            messages=[HumanMessage(content="summarize this")],
+        )
+        result = node(state)
+        assert result["summary"] is not None
+        assert result["pending_confirmation"] is True
+        assert result["confirmation_type"] == "save_summary"
+        assert "overview" in result["summary"]
+
+    def test_summarization_response_includes_title_and_sections(self, mock_components):
+        metadata_store, lexical_index, zotero_client, llm = mock_components
+        from zori.agents.summarization import make_summarization_node
+        node = make_summarization_node(zotero_client, llm, metadata_store, lexical_index)
+        state = _fresh_state(target_key="P1", messages=[HumanMessage(content="summarize")])
+        result = node(state)
+        assert "Test Paper" in result["response"]
+        assert "Overview" in result["response"]
+        assert "Findings" in result["response"]
+
+    def test_summarization_missing_metadata_returns_error(self, mock_components):
+        metadata_store, lexical_index, zotero_client, llm = mock_components
+        metadata_store.get.return_value = None
+        from zori.agents.summarization import make_summarization_node
+        node = make_summarization_node(zotero_client, llm, metadata_store, lexical_index)
+        state = _fresh_state(target_key="MISSING", messages=[HumanMessage(content="summarize")])
+        result = node(state)
+        assert "couldn't find" in result["response"].lower()
+        assert "summary" not in result
+
+    def test_summarization_no_text_returns_error(self, mock_components):
+        metadata_store, lexical_index, zotero_client, llm = mock_components
+        lexical_index.get_full_text.return_value = "   "
+        from zori.agents.summarization import make_summarization_node
+        node = make_summarization_node(zotero_client, llm, metadata_store, lexical_index)
+        state = _fresh_state(target_key="P1", messages=[HumanMessage(content="summarize")])
+        result = node(state)
+        assert "no text" in result["response"].lower()
+
+    def test_summarization_llm_failure_returns_error(self, mock_components):
+        metadata_store, lexical_index, zotero_client, llm = mock_components
+        structured_llm = MagicMock()
+        structured_llm.invoke.side_effect = RuntimeError("LLM timeout")
+        llm.with_structured_output.return_value = structured_llm
+        from zori.agents.summarization import make_summarization_node
+        node = make_summarization_node(zotero_client, llm, metadata_store, lexical_index)
+        state = _fresh_state(target_key="P1", messages=[HumanMessage(content="summarize")])
+        result = node(state)
+        assert "summarization failed" in result["response"].lower()

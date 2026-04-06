@@ -27,6 +27,7 @@ class SummaryOutput(BaseModel):
 
 def _format_summary(title: str, authors: list[str], year: str | None,
                     item_key: str, output: SummaryOutput) -> str:
+    """Render a SummaryOutput as a Rich-formatted string with a save prompt."""
     author_str = format_authors(authors)
     link = zotero_link(item_key)
     bullets = "\n".join(f"• {c}" for c in output.contributions)
@@ -48,6 +49,7 @@ def make_summarization_node(
     metadata_store: MetadataStore | None = None,
     lexical_index: LexicalIndex | None = None,
 ) -> Callable[[ZoriState], dict]:
+    """Return a LangGraph node that reads full paper text and produces a structured summary."""
     structured_llm = llm.with_structured_output(SummaryOutput)
 
     _metadata_store: MetadataStore | None = metadata_store

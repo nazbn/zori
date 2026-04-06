@@ -13,6 +13,7 @@ venv/
 
 # Environment
 .env
+config.yaml
 
 # Vector store
 .zori/

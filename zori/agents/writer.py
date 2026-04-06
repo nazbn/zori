@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def _format_note_html(summary: dict) -> str:
+    """Render a summary dict as an HTML string suitable for a Zotero note."""
     contributions_html = "".join(f"<li>{c}</li>" for c in summary.get("contributions", []))
     return (
         "<h2>Zori Summary</h2>"
@@ -22,6 +23,7 @@ def _format_note_html(summary: dict) -> str:
 
 
 def make_writer_node(zotero_client: ZoteroClient) -> Callable[[ZoriState], dict]:
+    """Return a LangGraph node that saves the current summary as a Zotero note."""
     def writer_node(state: ZoriState) -> dict:
         logger.debug(
             "[writer] query=%r target_key=%r has_summary=%s",

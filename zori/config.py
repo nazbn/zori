@@ -23,12 +23,10 @@ class EmbeddingsConfig:
 class VectorStoreConfig:
     provider: str
     persist_directory: str
-    qdrant_url: str | None
 
 
 @dataclass
 class IngestionConfig:
-    mode: str
     sync_on_startup: bool
     chunk_size: int
     chunk_overlap: int
@@ -42,23 +40,16 @@ class ZoteroConfig:
 
 
 @dataclass
-class SearchConfig:
-    # Maximum number of search refinement rounds paper_finder can run
-    # before returning its best results. 1 = no follow-up searches.
-    max_search_iterations: int
-
-
-@dataclass
 class Config:
     llm: LLMConfig
     embeddings: EmbeddingsConfig
     vector_store: VectorStoreConfig
     ingestion: IngestionConfig
     zotero: ZoteroConfig
-    search: SearchConfig
 
 
 def load_config(path: str = "config.yaml") -> Config:
+    """Load config from a YAML file and apply .env overrides. Raises if required fields are missing."""
     load_dotenv(find_dotenv(usecwd=True))
 
     config_path = Path(path)
@@ -88,7 +79,6 @@ def load_config(path: str = "config.yaml") -> Config:
     ing_raw = raw.get("ingestion", {})
     llm_raw = raw.get("llm", {})
     emb_raw = raw.get("embeddings", {})
-    search_raw = raw.get("search", {})
 
     return Config(
         llm=LLMConfig(
@@ -103,11 +93,9 @@ def load_config(path: str = "config.yaml") -> Config:
         vector_store=VectorStoreConfig(
             provider=vs_raw.get("provider", "chroma"),
             persist_directory=vs_raw.get("persist_directory", ".zori/chroma"),
-            qdrant_url=vs_raw.get("qdrant_url"),
         ),
         ingestion=IngestionConfig(
-            mode=ing_raw.get("mode", "batch"),
-            sync_on_startup=ing_raw.get("sync_on_startup", True),
+            sync_on_startup=ing_raw.get("sync_on_startup", False),
             chunk_size=ing_raw.get("chunk_size", 1000),
             chunk_overlap=ing_raw.get("chunk_overlap", 200),
         ),
@@ -115,8 +103,5 @@ def load_config(path: str = "config.yaml") -> Config:
             library_id=library_id,
             library_type=zotero_raw.get("library_type", "user"),
             api_key=api_key,
-        ),
-        search=SearchConfig(
-            max_search_iterations=search_raw.get("max_search_iterations", 3),
         ),
     )

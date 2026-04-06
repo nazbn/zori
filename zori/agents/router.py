@@ -48,6 +48,7 @@ def _format_results_for_prompt(results: list[SearchResult]) -> str:
 
 
 def make_router_node(llm: BaseChatModel) -> Callable[[ZoriState], dict]:
+    """Return a LangGraph node that classifies user intent and routes accordingly."""
     structured_llm = llm.with_structured_output(RouterOutput)
 
     def router_node(state: ZoriState) -> dict:

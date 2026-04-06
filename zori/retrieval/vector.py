@@ -74,4 +74,5 @@ def create_vector_store(
     persist_directory: str,
     embed_fn: Callable[[list[str]], list[list[float]]],
 ) -> ChromaVectorStore:
+    """Instantiate a ChromaVectorStore backed by the given directory and embedding function."""
     return ChromaVectorStore(persist_directory, embed_fn)

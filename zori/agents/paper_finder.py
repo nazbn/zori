@@ -72,6 +72,7 @@ def make_paper_finder_node(
     search_service: SearchService,
     llm,
 ) -> Callable[[ZoriState], dict]:
+    """Return a LangGraph node that analyses the query, runs hybrid search, and returns results."""
     query_analyzer = llm.with_structured_output(SearchPlan)
 
     def paper_finder_node(state: ZoriState) -> dict:
