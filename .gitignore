@@ -1,6 +1,7 @@
 # Development
 .dev/
 CLAUDE.md
+ui/
 
 # Python
 __pycache__/
