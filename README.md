@@ -95,15 +95,13 @@ LLM and embeddings are configured independently — any combination works.
 | Ollama (free, local) | `provider: ollama`, `model: nomic-embed-text` | Ollama running + `ollama pull nomic-embed-text` |
 | HuggingFace (free, local) | `provider: huggingface`, `model: <model>` (e.g. `all-MiniLM-L6-v2`) | `pip install "zori[huggingface]"` |
 
-If you use Ollama for both LLM and embeddings, no API keys are needed.
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
 
 ## Contact
 
-For questions, bug reports, or feature requests, open an issue on [GitHub](https://github.com/nazbn/zori/issues)
+For questions, bug reports, or feature requests, open an issue on the [GitHub issue tracker](https://github.com/nazbn/zori/issues)
 or reach out at nazanin.bagherinejad@rwth-aachen.de.
 
 ---
