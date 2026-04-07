@@ -1,6 +1,7 @@
 # Development
 .dev/
 CLAUDE.md
+ui/
 
 # Python
 __pycache__/
@@ -13,6 +14,7 @@ venv/
 
 # Environment
 .env
+config.yaml
 
 # Vector store
 .zori/
