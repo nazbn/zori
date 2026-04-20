@@ -1,6 +1,6 @@
 import os
-from typing import Callable
 
+from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
 
 
@@ -29,26 +29,23 @@ def get_llm(config) -> BaseChatModel:
     )
 
 
-def get_embed_fn(config) -> Callable[[list[str]], list[list[float]]]:
-    """Return an embedding function compatible with ChromaVectorStore."""
+def get_embeddings(config) -> Embeddings:
+    """Return a LangChain Embeddings object based on config."""
     provider = config.embeddings.provider
     model = config.embeddings.model
 
     if provider == "openai":
         _require_env("OPENAI_API_KEY")
         from langchain_openai import OpenAIEmbeddings
-        embeddings = OpenAIEmbeddings(model=model)
-        return embeddings.embed_documents
+        return OpenAIEmbeddings(model=model)
 
     if provider == "huggingface":
         from langchain_huggingface import HuggingFaceEmbeddings
-        embeddings = HuggingFaceEmbeddings(model_name=model)
-        return embeddings.embed_documents
+        return HuggingFaceEmbeddings(model_name=model)
 
     if provider == "ollama":
         from langchain_ollama import OllamaEmbeddings
-        embeddings = OllamaEmbeddings(model=model)
-        return embeddings.embed_documents
+        return OllamaEmbeddings(model=model)
 
     raise ValueError(
         f"Unknown embeddings provider '{provider}'. Choose from: openai, huggingface, ollama"

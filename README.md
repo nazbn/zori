@@ -4,6 +4,7 @@ An open-source multi-agent research assistant that connects to your Zotero libra
 Search, summarize, and explore your research papers through a conversational interface.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-1.0+-yellow)
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-orange)
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-0.5+-purple)
 ![License](https://img.shields.io/badge/License-MIT-green)

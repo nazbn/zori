@@ -8,7 +8,7 @@ from zori.ingestion.pdf import PDFParser
 from zori.ingestion.zotero import ZoteroClient, ZoteroItem
 from zori.retrieval.lexical import LexicalIndex
 from zori.retrieval.metadata import MetadataStore
-from zori.retrieval.vector import ChromaVectorStore
+from zori.retrieval.vector import ZoriVectorStore
 
 console = Console()
 
@@ -28,7 +28,7 @@ class IngestionPipeline:
     def __init__(
         self,
         zotero: ZoteroClient,
-        vector_store: ChromaVectorStore,
+        vector_store: ZoriVectorStore,
         metadata_store: MetadataStore,
         lexical_index: LexicalIndex | None = None,
     ):
