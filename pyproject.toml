@@ -27,7 +27,7 @@ classifiers = [
 dependencies = [
     # Agent orchestration
     "langgraph>=0.2",
-    "langchain>=0.3",
+    "langchain>=1.0",
     "langchain-openai>=0.2",
     "langchain-anthropic>=0.2",
     "langchain-community>=0.3",
