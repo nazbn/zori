@@ -70,29 +70,6 @@ class TitleRetriever(BaseRetriever):
         return [Document(page_content=key, metadata={"item_key": key}) for key in keys]
 
 
-class VectorRetriever(BaseRetriever):
-    """Semantic retriever wrapping ChromaVectorStore."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    vector_store: Any
-    query: str
-    top_k: int = 20
-
-    def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
-    ) -> list[Document]:
-        try:
-            chunks = self.vector_store.search(self.query, top_k=self.top_k)
-        except Exception:
-            return []
-        seen: dict[str, float] = {}
-        for c in chunks:
-            if c.item_key not in seen or c.score > seen[c.item_key]:
-                seen[c.item_key] = c.score
-        return [Document(page_content=key, metadata={"item_key": key}) for key in seen]
-
-
 class MetadataRetriever(BaseRetriever):
     """Retriever that boosts papers matching author and/or year."""
 

@@ -1,8 +1,24 @@
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
+from pydantic import ConfigDict
 
 from zori.retrieval.search import SearchService
+
+
+class _StubRetriever(BaseRetriever):
+    """Minimal BaseRetriever that returns a fixed list of Documents."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    docs: list[Any] = []
+
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> list[Document]:
+        return self.docs
 
 
 # ---------------------------------------------------------------------------
@@ -12,12 +28,13 @@ from zori.retrieval.search import SearchService
 @pytest.fixture
 def mock_stores():
     vector_store = MagicMock()
-    metadata_store = MagicMock()
-    lexical_index = MagicMock()
+    vector_store.as_retriever.return_value = _StubRetriever()
 
-    vector_store.search.return_value = []
+    metadata_store = MagicMock()
     metadata_store.filter.return_value = []
     metadata_store.get.return_value = {"title": "Unknown", "authors": [], "year": None, "journal": None}
+
+    lexical_index = MagicMock()
     lexical_index.search_papers.return_value = []
     lexical_index.search_chunks.return_value = []
     lexical_index.search_tags.return_value = []

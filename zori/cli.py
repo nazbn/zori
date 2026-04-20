@@ -15,7 +15,7 @@ from zori.agents.graph import ZoriState, build_graph
 from zori.config import load_config
 from zori.ingestion.pipeline import IngestionPipeline
 from zori.ingestion.zotero import ZoteroClient
-from zori.llm.providers import get_embed_fn, get_llm
+from zori.llm.providers import get_embeddings, get_llm
 from zori.retrieval.lexical import LexicalIndex
 from zori.retrieval.search import SearchService
 from zori.retrieval.metadata import MetadataStore
@@ -43,8 +43,8 @@ def _init_services() -> tuple[Services, object]:
         api_key=config.zotero.api_key,
     )
 
-    embed_fn = get_embed_fn(config)
-    vector_store = create_vector_store(config.vector_store.persist_directory, embed_fn)
+    embeddings = get_embeddings(config)
+    vector_store = create_vector_store(config.vector_store.persist_directory, embeddings)
     metadata_store = MetadataStore()
     lexical_index = LexicalIndex()
     search_service = SearchService(vector_store, metadata_store, lexical_index)

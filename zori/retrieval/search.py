@@ -10,9 +10,8 @@ from zori.retrieval.retrievers import (
     PapersRetriever,
     TagsRetriever,
     TitleRetriever,
-    VectorRetriever,
 )
-from zori.retrieval.vector import ChromaVectorStore
+from zori.retrieval.vector import ZoriVectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class SearchResult:
 class SearchService:
     def __init__(
         self,
-        vector_store: ChromaVectorStore,
+        vector_store: ZoriVectorStore,
         metadata_store: MetadataStore,
         lexical_index=None,  # LexicalIndex | None — avoid circular import
     ):
@@ -53,6 +52,7 @@ class SearchService:
 
         author and year are soft scoring signals (via MetadataRetriever), not hard filters.
         tags score via TagsRetriever. title triggers high-precision FTS5 on the title column.
+        Results are deduplicated by item_key — multiple chunks from the same paper collapse.
         """
         retrievers = []
 
@@ -68,10 +68,8 @@ class SearchService:
                 retrievers.append(ChunksRetriever(lexical_index=self._lexical_index, query=lq))
 
         if semantic_query:
-            retrievers.append(VectorRetriever(
-                vector_store=self._vector_store,
-                query=semantic_query,
-                top_k=top_k * 2,
+            retrievers.append(self._vector_store.as_retriever(
+                search_kwargs={"k": top_k * 2},
             ))
 
         if author or year:
@@ -84,8 +82,10 @@ class SearchService:
         if not retrievers:
             return []
 
-        ensemble = EnsembleRetriever(retrievers=retrievers)
-        docs = ensemble.invoke("")  # each retriever uses its own pre-set query
+        # id_key="item_key" deduplicates across retrievers by metadata["item_key"],
+        # so multiple chunks from the same paper collapse into one result.
+        ensemble = EnsembleRetriever(retrievers=retrievers, id_key="item_key")
+        docs = ensemble.invoke(semantic_query or "")
 
         results = []
         for rank, doc in enumerate(docs[:top_k]):
