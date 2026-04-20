@@ -1,50 +1,12 @@
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
-from zori.retrieval.search import SearchService, _rrf_combine
-from zori.retrieval.vector import ChunkResult
+from zori.retrieval.search import SearchService
 
 
 # ---------------------------------------------------------------------------
-# _rrf_combine
-# ---------------------------------------------------------------------------
-
-def test_rrf_combine_higher_weight_ranks_first():
-    # A is in weight-3 list, B is in weight-1 list, both at rank 0
-    result = _rrf_combine([["A"], ["B"]], [3.0, 1.0])
-    assert result[0] == "A"
-
-
-def test_rrf_combine_item_in_multiple_lists_scores_higher():
-    # A appears in both lists; B and C each appear in only one
-    result = _rrf_combine([["A", "B"], ["A", "C"]], [1.0, 1.0])
-    assert result[0] == "A"
-
-
-def test_rrf_combine_empty_returns_empty():
-    assert _rrf_combine([], []) == []
-
-
-def test_rrf_combine_single_list_preserves_order():
-    result = _rrf_combine([["X", "Y", "Z"]], [1.0])
-    assert result == ["X", "Y", "Z"]
-
-
-def test_rrf_combine_weight_zero_list_ignored():
-    # weight=0 contributes nothing; only the weight-1 list should determine order
-    result = _rrf_combine([["A", "B"], ["B", "A"]], [0.0, 1.0])
-    assert result[0] == "B"
-
-
-def test_rrf_combine_custom_k():
-    # k=0: score = weight / (0 + rank + 1). Order should still be preserved.
-    result = _rrf_combine([["A", "B"]], [1.0], k=0)
-    assert result == ["A", "B"]
-
-
-# ---------------------------------------------------------------------------
-# hybrid_search — fixtures
+# fixtures
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
@@ -69,7 +31,7 @@ def _meta(key):
 
 
 # ---------------------------------------------------------------------------
-# hybrid_search — no inputs
+# no inputs
 # ---------------------------------------------------------------------------
 
 def test_hybrid_search_no_inputs_returns_empty(mock_stores):
@@ -86,12 +48,12 @@ def test_hybrid_search_all_retrievers_empty_returns_empty(mock_stores):
 
 
 # ---------------------------------------------------------------------------
-# hybrid_search — author / year hard filters
+# author / year — soft scoring (not hard filters)
 # ---------------------------------------------------------------------------
 
-def test_hybrid_search_author_filter_excludes_non_matching(mock_stores):
+def test_hybrid_search_author_boosts_matching_papers(mock_stores):
     vector_store, metadata_store, lexical_index = mock_stores
-    metadata_store.filter.return_value = ["P2"]
+    metadata_store.filter.return_value = ["P2"]  # P2 matches author
     metadata_store.get.side_effect = _meta
     lexical_index.search_papers.return_value = [("P1", -1.0), ("P2", -0.5)]
     lexical_index.search_chunks.return_value = []
@@ -99,32 +61,45 @@ def test_hybrid_search_author_filter_excludes_non_matching(mock_stores):
     svc = SearchService(vector_store, metadata_store, lexical_index)
     results = svc.hybrid_search(lexical_queries=["neural"], author="Smith")
     keys = [r.item_key for r in results]
-    assert "P1" not in keys
+    assert "P1" in keys                            # still present (soft scoring)
     assert "P2" in keys
+    assert keys.index("P2") < keys.index("P1")    # P2 ranks higher due to author match
 
 
-def test_hybrid_search_year_filter_excludes_non_matching(mock_stores):
+def test_hybrid_search_year_boosts_matching_papers(mock_stores):
     vector_store, metadata_store, lexical_index = mock_stores
-    metadata_store.filter.return_value = ["P1"]
+    metadata_store.filter.return_value = ["P1"]  # P1 matches year
     metadata_store.get.side_effect = _meta
-    lexical_index.search_papers.return_value = [("P1", -1.0), ("P2", -0.5)]
+    lexical_index.search_papers.return_value = [("P2", -1.0), ("P1", -0.5)]
     lexical_index.search_chunks.return_value = []
 
     svc = SearchService(vector_store, metadata_store, lexical_index)
     results = svc.hybrid_search(lexical_queries=["neural"], year="2023")
     keys = [r.item_key for r in results]
     assert "P1" in keys
-    assert "P2" not in keys
+    assert "P2" in keys
+    assert keys.index("P1") < keys.index("P2")    # P1 ranks higher due to year match
+
+
+def test_hybrid_search_author_only_returns_matching_papers(mock_stores):
+    vector_store, metadata_store, lexical_index = mock_stores
+    metadata_store.filter.return_value = ["P1", "P2"]
+    metadata_store.get.side_effect = _meta
+
+    svc = SearchService(vector_store, metadata_store, lexical_index)
+    results = svc.hybrid_search(author="Vaswani")
+    keys = [r.item_key for r in results]
+    assert "P1" in keys
+    assert "P2" in keys
 
 
 # ---------------------------------------------------------------------------
-# hybrid_search — multiple lexical queries
+# multiple lexical queries
 # ---------------------------------------------------------------------------
 
 def test_hybrid_search_multiple_lexical_queries_merged(mock_stores):
     vector_store, metadata_store, lexical_index = mock_stores
     metadata_store.get.side_effect = _meta
-    # First query matches P1, second matches P2
     lexical_index.search_papers.side_effect = [
         [("P1", -1.0)],
         [("P2", -1.0)],
@@ -152,7 +127,6 @@ def test_hybrid_search_multiple_lexical_queries_calls_search_per_query(mock_stor
 def test_hybrid_search_paper_in_both_lexical_queries_ranks_high(mock_stores):
     vector_store, metadata_store, lexical_index = mock_stores
     metadata_store.get.side_effect = _meta
-    # P1 appears in both lexical query results; P2 only in one
     lexical_index.search_papers.side_effect = [
         [("P1", -1.0), ("P2", -0.5)],
         [("P1", -1.0), ("P3", -0.5)],
@@ -166,13 +140,12 @@ def test_hybrid_search_paper_in_both_lexical_queries_ranks_high(mock_stores):
 
 
 # ---------------------------------------------------------------------------
-# hybrid_search — tags as soft scoring (not hard filter)
+# tags as soft scoring
 # ---------------------------------------------------------------------------
 
 def test_hybrid_search_tags_do_not_exclude_non_tagged_papers(mock_stores):
     vector_store, metadata_store, lexical_index = mock_stores
     metadata_store.get.side_effect = _meta
-    # P1 matches lexical but has no tag; P2 matches tag search
     lexical_index.search_papers.return_value = [("P1", -1.0)]
     lexical_index.search_chunks.return_value = []
     lexical_index.search_tags.return_value = [("P2", -1.0)]
@@ -180,8 +153,8 @@ def test_hybrid_search_tags_do_not_exclude_non_tagged_papers(mock_stores):
     svc = SearchService(vector_store, metadata_store, lexical_index)
     results = svc.hybrid_search(lexical_queries=["neural"], tags=["ml"])
     keys = [r.item_key for r in results]
-    assert "P1" in keys  # present despite not matching tag
-    assert "P2" in keys  # present because of tag match
+    assert "P1" in keys
+    assert "P2" in keys
 
 
 def test_hybrid_search_tags_do_not_trigger_metadata_filter(mock_stores):
@@ -193,5 +166,4 @@ def test_hybrid_search_tags_do_not_trigger_metadata_filter(mock_stores):
 
     svc = SearchService(vector_store, metadata_store, lexical_index)
     svc.hybrid_search(tags=["ml"])
-    # filter() should NOT be called when only tags are provided (no author/year)
     metadata_store.filter.assert_not_called()

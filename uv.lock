@@ -5833,6 +5833,7 @@ dependencies = [
     { name = "chromadb" },
     { name = "langchain" },
     { name = "langchain-anthropic" },
+    { name = "langchain-classic" },
     { name = "langchain-community" },
     { name = "langchain-ollama" },
     { name = "langchain-openai" },
@@ -5863,6 +5864,11 @@ ui = [
     { name = "gradio" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.30" },
@@ -5870,6 +5876,7 @@ requires-dist = [
     { name = "gradio", marker = "extra == 'ui'", specifier = ">=4.0" },
     { name = "langchain", specifier = ">=0.3" },
     { name = "langchain-anthropic", specifier = ">=0.2" },
+    { name = "langchain-classic", specifier = ">=1.0" },
     { name = "langchain-community", specifier = ">=0.3" },
     { name = "langchain-huggingface", marker = "extra == 'huggingface'", specifier = ">=0.1" },
     { name = "langchain-ollama", specifier = ">=0.2" },
@@ -5889,6 +5896,9 @@ requires-dist = [
     { name = "typer", specifier = ">=0.12" },
 ]
 provides-extras = ["qdrant", "huggingface", "ui", "dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "zstandard"
