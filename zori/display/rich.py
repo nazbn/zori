@@ -17,7 +17,7 @@ def zotero_link(item_key: str, label: str = "open in Zotero") -> str:
 
 
 def format_results(query: str, results: list[SearchResult]) -> str:
-    """Format a list of SearchResults as a numbered display string for the REPL."""
+    """Format a list of SearchResults as a Rich display string for the REPL."""
     if not results:
         return f'Nothing in your library matched "{query}".'
 
@@ -26,13 +26,31 @@ def format_results(query: str, results: list[SearchResult]) -> str:
         authors = format_authors(r.authors)
         year = r.year or "?"
         lines.append(f"{i}. {r.title} — {authors} ({year})")
-        # TODO: re-enable once section titles filter out reference chunks (v2)
-        # if r.text:
-        #     preview = r.text[:150].strip().replace("\n", " ")
-        #     if len(r.text) > 150:
-        #         preview += "..."
-        #     lines.append(f'   "{preview}"')
         lines.append(f"   {zotero_link(r.item_key)}")
         lines.append("")
 
     return "\n".join(lines).rstrip()
+
+
+def render_response(state: dict) -> str:
+    """Format a ZoriState into a display string for the CLI."""
+    results = state.get("search_results", [])
+    intent = state.get("intent", "")
+    pending = state.get("pending_confirmation", False)
+
+    # Search results
+    if results and intent == "search" and not pending:
+        return format_results(state.get("query", ""), results)
+
+    response = state.get("response") or ""
+
+    # Summarization — add link to the paper being summarized
+    if pending and state.get("confirmation_type") == "save_summary":
+        if key := state.get("target_key"):
+            response = f"{response}\n{zotero_link(key)}"
+
+    # Single paper confirmation — add link to the candidate
+    elif pending and state.get("confirmation_type") == "paper_selection" and state.get("candidate_key"):
+        response = f"{response}\n{zotero_link(state['candidate_key'])}"
+
+    return response

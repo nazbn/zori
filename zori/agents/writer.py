@@ -4,7 +4,6 @@ from typing import Callable
 from langchain_core.messages import AIMessage
 
 from zori.agents.graph import ZoriState
-from zori.retrieval.formatting import zotero_link
 from zori.ingestion.zotero import ZoteroClient
 
 logger = logging.getLogger(__name__)
@@ -65,8 +64,7 @@ def make_writer_node(zotero_client: ZoteroClient) -> Callable[[ZoriState], dict]
                 "messages": [AIMessage(content=response)],
             }
 
-        link = zotero_link(item_key, label="view in Zotero")
-        response = f"Summary saved as a note in Zotero. {link}"
+        response = "Summary saved as a note in Zotero."
         return {
             "pending_confirmation": False,
             "confirmation_type": None,

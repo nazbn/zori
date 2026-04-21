@@ -8,7 +8,7 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 from zori.agents.graph import ZoriState
-from zori.retrieval.formatting import format_authors, zotero_link
+from zori.display.rich import format_authors
 from zori.ingestion.zotero import ZoteroClient
 from zori.retrieval.lexical import LexicalIndex
 from zori.retrieval.metadata import MetadataStore
@@ -26,15 +26,13 @@ class SummaryOutput(BaseModel):
 
 
 def _format_summary(title: str, authors: list[str], year: str | None,
-                    item_key: str, output: SummaryOutput) -> str:
-    """Render a SummaryOutput as a Rich-formatted string with a save prompt."""
+                    output: SummaryOutput) -> str:
+    """Render a SummaryOutput as plain text with a save prompt."""
     author_str = format_authors(authors)
-    link = zotero_link(item_key)
     bullets = "\n".join(f"• {c}" for c in output.contributions)
 
     return (
-        f"{title} — {author_str} ({year or '?'})\n"
-        f"{link}\n\n"
+        f"{title} — {author_str} ({year or '?'})\n\n"
         f"Overview\n{output.overview}\n\n"
         f"Key Contributions\n{bullets}\n\n"
         f"Methods\n{output.methods}\n\n"
@@ -89,7 +87,6 @@ def make_summarization_node(
             title=meta.get("title", "Unknown"),
             authors=meta.get("authors", []),
             year=meta.get("year"),
-            item_key=item_key,
             output=output,
         )
 

@@ -13,6 +13,7 @@ from rich.console import Console
 
 from zori.agents.graph import ZoriState, build_graph
 from zori.config import load_config
+from zori.display.rich import render_response
 from zori.ingestion.pipeline import IngestionPipeline
 from zori.ingestion.zotero import ZoteroClient
 from zori.llm.providers import get_embeddings, get_llm
@@ -132,8 +133,8 @@ def _repl():
             console.print(f"[red]Something went wrong:[/red] {e}")
             continue
 
-        if state.get("response"):
-            console.print(state["response"], markup=True)
+        if output := render_response(state):
+            console.print(output, markup=True)
         console.print()
 
 
@@ -183,4 +184,15 @@ def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified it
         services.pipeline.run_sync()
     else:
         services.pipeline.run_full()
+
+
+@app.command()
+def ui():
+    """Launch the Zori web UI in your browser."""
+    try:
+        from zori.ui.app import launch
+    except ImportError:
+        console.print("[red]Gradio is not installed.[/red] Run: pip install zori[ui]")
+        raise typer.Exit(1)
+    launch()
 

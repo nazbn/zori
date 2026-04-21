@@ -106,7 +106,7 @@ class TestPaperFinder:
                              messages=[HumanMessage(content="transformers")])
         result = node(state)
         assert len(result["search_results"]) == 1
-        assert "Attention" in result["response"]
+        assert result["response"] == ""  # display layer handles formatting
 
     def test_find_for_summarize_asks_confirmation(self, search_service, mock_llm):
         from zori.agents.paper_finder import make_paper_finder_node

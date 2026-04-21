@@ -13,7 +13,7 @@ class MetadataStore:
     def __init__(self, path: Path = DB_PATH):
         self._path = path
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self._path))
+        self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._create_table()
 

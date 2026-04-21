@@ -7,7 +7,7 @@ from pydantic import BaseModel, field_validator
 logger = logging.getLogger(__name__)
 
 from zori.agents.graph import ZoriState
-from zori.retrieval.formatting import format_authors, format_results, zotero_link
+from zori.display.rich import format_authors
 from zori.retrieval.search import SearchResult, SearchService
 
 MAX_DISPLAY = 5
@@ -112,11 +112,11 @@ def make_paper_finder_node(
 
         # ---- Display mode (intent = "search") ----
         if mode == "display":
-            response = format_results(plan.display_query, final)
+            msg = f'Found {len(final)} result(s) for "{plan.display_query}".' if final else f'Nothing matched "{plan.display_query}".'
             return {
                 "search_results": final,
-                "response": response,
-                "messages": [AIMessage(content=response)],
+                "response": "",
+                "messages": [AIMessage(content=msg)],
             }
 
         # ---- Find-for-summarize mode (intent = "summarize", no key yet) ----
@@ -130,9 +130,8 @@ def make_paper_finder_node(
         if len(final) == 1:
             top = final[0]
             authors_str = format_authors(top.authors)
-            link = zotero_link(top.item_key)
             response = (
-                f'I found "{top.title}" by {authors_str} ({top.year or "?"}). {link}\n'
+                f'I found "{top.title}" by {authors_str} ({top.year or "?"}).\n'
                 "Shall I summarize this one? (yes / no)"
             )
             return {
@@ -148,9 +147,7 @@ def make_paper_finder_node(
         lines = [f'I found several papers that could match "{plan.display_query}". Which one?\n']
         for i, r in enumerate(final[:3], 1):
             authors_str = format_authors(r.authors)
-            lines.append(
-                f"  {i}. {r.title} — {authors_str} ({r.year or '?'}) {zotero_link(r.item_key)}"
-            )
+            lines.append(f"  {i}. {r.title} — {authors_str} ({r.year or '?'})")
         lines.append("\nReply with a number, or 'none' to cancel.")
         response = "\n".join(lines)
 
