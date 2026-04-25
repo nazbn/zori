@@ -47,7 +47,7 @@ app = FastAPI(title="Zori")
 
 _graph = None
 _services = None
-_ingest_status: dict = {"state": "idle", "error": None}  # idle | running | done | error
+_ingest_status: dict = {"state": "idle", "error": None, "papers": [], "total": 0}
 
 
 @app.on_event("startup")
@@ -124,6 +124,15 @@ def ingest_status():
     return IngestStatusResponse(**_ingest_status)
 
 
+@app.get("/api/ingest/progress")
+def ingest_progress():
+    return {
+        "state": _ingest_status["state"],
+        "papers": _ingest_status["papers"],
+        "error": _ingest_status["error"],
+    }
+
+
 @app.post("/api/ingest")
 def start_ingest():
     if _ingest_status["state"] == "running":
@@ -132,8 +141,13 @@ def start_ingest():
     def _run():
         _ingest_status["state"] = "running"
         _ingest_status["error"] = None
+        _ingest_status["papers"] = []
+
+        def _on_progress(title: str, status: str):
+            _ingest_status["papers"].append({"title": title, "status": status})
+
         try:
-            _services.pipeline.run_full()
+            _services.pipeline.run_full(on_progress=_on_progress)
             _ingest_status["state"] = "done"
         except Exception as e:
             logger.exception("Ingestion error")

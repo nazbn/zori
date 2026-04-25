@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 from rich.console import Console
 
@@ -39,17 +40,23 @@ class IngestionPipeline:
         self._parser = PDFParser()
         self._state = self._load_state()
 
-    def run_full(self) -> IngestionResult:
+    def run_full(
+        self,
+        on_progress: Callable[[str, str], None] | None = None,
+    ) -> IngestionResult:
         """Ingest the entire library, re-ingesting items whose version has changed."""
         console.print("Fetching items from Zotero...")
         items = self._zotero.fetch_all_items()
         console.print(f"Ingesting {len(items)} items from Zotero...\n")
-        result = self._process_items(items)
+        result = self._process_items(items, on_progress=on_progress)
         self._save_state()
         self._print_summary(result)
         return result
 
-    def run_sync(self) -> IngestionResult:
+    def run_sync(
+        self,
+        on_progress: Callable[[str, str], None] | None = None,
+    ) -> IngestionResult:
         """Ingest only items added or changed since the last sync."""
         since = self._state.get("library_version", 0)
         console.print(f"Checking for new or changed items since version {since}...")
@@ -58,18 +65,24 @@ class IngestionPipeline:
             console.print("Nothing new.")
             return IngestionResult()
         console.print(f"Ingesting {len(items)} new or updated items...\n")
-        result = self._process_items(items)
+        result = self._process_items(items, on_progress=on_progress)
         self._save_state()
         self._print_summary(result)
         return result
 
-    def _process_items(self, items: list[ZoteroItem]) -> IngestionResult:
+    def _process_items(
+        self,
+        items: list[ZoteroItem],
+        on_progress: Callable[[str, str], None] | None = None,
+    ) -> IngestionResult:
         result = IngestionResult()
 
         for item in items:
             if not item.attachments:
                 console.print(f"  [yellow]—[/yellow] {item.title[:70]} — no PDF, skipping")
                 result.skipped_no_pdf += 1
+                if on_progress:
+                    on_progress(item.title, "skipped")
                 continue
 
             current_version = item.version
@@ -84,10 +97,14 @@ class IngestionPipeline:
                 self._state.setdefault("ingested", {})[item.key] = current_version
                 console.print(f"  [green]✓[/green] {item.title[:70]}")
                 result.ingested += 1
+                if on_progress:
+                    on_progress(item.title, "ok")
             except Exception as e:
                 console.print(f"  [red]✗[/red] {item.title[:70]} — {e}")
                 result.failed += 1
                 result.failed_keys.append(item.key)
+                if on_progress:
+                    on_progress(item.title, "failed")
 
         library_version = self._zotero.get_library_version()
         self._state["library_version"] = library_version

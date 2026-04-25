@@ -329,7 +329,15 @@
     .btn-ingest:hover { opacity: .88; }
     .btn-ingest:disabled { opacity: .4; cursor: default; }
 
-    .ingest-spinner {
+    .ingest-running-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      padding: 28px 24px 12px;
+    }
+
+    .ingest-header {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -338,8 +346,8 @@
     }
 
     .spin {
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       border: 2px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
@@ -348,6 +356,38 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    .ingest-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 340px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .ingest-list::-webkit-scrollbar { width: 3px; }
+    .ingest-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .ingest-list li {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      line-height: 1.4;
+    }
+
+    .ingest-list li .dot {
+      flex-shrink: 0;
+      font-size: 0.6rem;
+      margin-top: 1px;
+    }
+
+    .ingest-list li.ok   .dot { color: #5a9e6f; }
+    .ingest-list li.skip .dot { color: var(--text-muted); }
+    .ingest-list li.fail .dot { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -369,10 +409,13 @@
       <p>Your library hasn't been ingested yet. Zori needs to index your papers before you can search or summarize.</p>
       <button class="btn-ingest" onclick="startIngest()">Ingest Library</button>
     </div>
-    <div class="ingest-banner" id="ingest-running" style="display:none;">
-      <div class="ingest-spinner">
-        <div class="spin"></div>
-        <span>Ingesting your library, this may take a few minutes...</span>
+    <div id="ingest-running" style="display:none;">
+      <div class="ingest-running-wrap">
+        <div class="ingest-header">
+          <div class="spin"></div>
+          <span>Ingesting your library, this may take a few minutes...</span>
+        </div>
+        <ul class="ingest-list" id="ingest-list"></ul>
       </div>
     </div>
   </div>
@@ -415,18 +458,38 @@
 
   function showIngestRunning() {
     document.getElementById('ingest-prompt').style.display = 'none';
-    document.getElementById('ingest-running').style.display = 'flex';
+    document.getElementById('ingest-running').style.display = 'block';
+    let knownCount = 0;
+
     _ingestPoll = setInterval(async () => {
-      const state = await checkIngestStatus();
-      if (state === 'done') {
-        clearInterval(_ingestPoll);
-        onIngestDone();
-      } else if (state === 'error') {
-        clearInterval(_ingestPoll);
-        document.getElementById('ingest-running').innerHTML =
-          '<p style="color:var(--accent)">Ingestion failed. Check the terminal for details.</p>';
-      }
-    }, 3000);
+      try {
+        const res = await fetch('/api/ingest/progress');
+        const data = await res.json();
+
+        // Append new papers since last poll
+        const list = document.getElementById('ingest-list');
+        const papers = data.papers || [];
+        for (let i = knownCount; i < papers.length; i++) {
+          const p = papers[i];
+          const li = document.createElement('li');
+          li.className = p.status === 'ok' ? 'ok' : p.status === 'failed' ? 'fail' : 'skip';
+          const dot = p.status === 'ok' ? '●' : p.status === 'failed' ? '●' : '○';
+          li.innerHTML = `<span class="dot">${dot}</span><span>${p.title}</span>`;
+          list.appendChild(li);
+          list.scrollTop = list.scrollHeight;
+        }
+        knownCount = papers.length;
+
+        if (data.state === 'done') {
+          clearInterval(_ingestPoll);
+          onIngestDone();
+        } else if (data.state === 'error') {
+          clearInterval(_ingestPoll);
+          document.getElementById('ingest-running').innerHTML =
+            '<div class="ingest-banner"><p style="color:var(--accent)">Ingestion failed. Check the terminal for details.</p></div>';
+        }
+      } catch (_) {}
+    }, 2000);
   }
 
   function onIngestDone() {
