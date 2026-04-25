@@ -1,4 +1,7 @@
-# Zori
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+  <img src="assets/logo-light.svg" alt="Zori" height="48">
+</picture>
 
 An open-source multi-agent research assistant that connects to your Zotero library.
 Search, summarize, and explore your research papers through a conversational interface.
