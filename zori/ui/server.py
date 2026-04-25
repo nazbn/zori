@@ -50,13 +50,13 @@ _services = None
 _ingest_status: dict = {"state": "idle", "error": None, "papers": [], "total": 0}
 
 
+_init_result = None
+
+
 @app.on_event("startup")
 def _startup():
     global _graph, _services
-    try:
-        services, config = _init_services()
-    except (FileNotFoundError, ValueError) as e:
-        raise RuntimeError(f"Setup error: {e}. Run 'zori init' and configure your credentials.") from e
+    services, config = _init_result  # pre-validated in launch()
     _services = services
     llm = get_llm(config)
     _graph = build_graph(services.search_service, services.zotero, llm, services.lexical_index)
@@ -177,6 +177,15 @@ def index():
 def launch(host: str = "127.0.0.1", port: int = 7860, open_browser: bool = True):
     import webbrowser
     import uvicorn
+
+    # Fail fast with a clear message before starting the server
+    global _init_result
+    try:
+        _init_result = _init_services()
+    except (FileNotFoundError, ValueError) as e:
+        print(f"\nSetup error: {e}")
+        print("Run 'zori init' to create your config files, then configure your credentials.\n")
+        return
 
     url = f"http://{host}:{port}"
     if open_browser:

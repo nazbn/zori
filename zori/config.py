@@ -55,7 +55,7 @@ def load_config(path: str = "config.yaml") -> Config:
     config_path = Path(path)
     if not config_path.exists():
         raise FileNotFoundError(
-            "config.yaml not found. Run 'zori init' to create it."
+            "config.yaml not found."
         )
 
     raw = yaml.safe_load(config_path.read_text())
