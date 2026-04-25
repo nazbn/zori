@@ -295,6 +295,59 @@
       margin-top: 7px;
       text-align: center;
     }
+
+    /* ── Ingest banner ───────────────────────────────────────────── */
+    .ingest-banner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    .ingest-banner p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      max-width: 340px;
+    }
+
+    .btn-ingest {
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 500;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 24px;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+
+    .btn-ingest:hover { opacity: .88; }
+    .btn-ingest:disabled { opacity: .4; cursor: default; }
+
+    .ingest-spinner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    .spin {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -310,7 +363,21 @@
     </div>
   </div>
 
-  <div class="input-wrap">
+  <!-- Shown when library not ingested -->
+  <div id="ingest-panel" style="display:none;">
+    <div class="ingest-banner" id="ingest-prompt">
+      <p>Your library hasn't been ingested yet. Zori needs to index your papers before you can search or summarize.</p>
+      <button class="btn-ingest" onclick="startIngest()">Ingest Library</button>
+    </div>
+    <div class="ingest-banner" id="ingest-running" style="display:none;">
+      <div class="ingest-spinner">
+        <div class="spin"></div>
+        <span>Ingesting your library, this may take a few minutes...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-wrap" id="input-wrap">
     <div class="input-row">
       <textarea
         id="input"
@@ -326,6 +393,57 @@
 </div>
 
 <script>
+  // ── Ingest ─────────────────────────────────────────────────────
+  let _ingestPoll = null;
+
+  async function checkIngestStatus() {
+    try {
+      const res = await fetch('/api/ingest/status');
+      const data = await res.json();
+      return data.state;
+    } catch { return 'done'; }
+  }
+
+  async function initIngestState() {
+    const state = await checkIngestStatus();
+    if (state === 'done') return;
+    // Library not ingested — show ingest panel, hide input
+    document.getElementById('input-wrap').style.display = 'none';
+    document.getElementById('ingest-panel').style.display = 'block';
+    if (state === 'running') showIngestRunning();
+  }
+
+  function showIngestRunning() {
+    document.getElementById('ingest-prompt').style.display = 'none';
+    document.getElementById('ingest-running').style.display = 'flex';
+    _ingestPoll = setInterval(async () => {
+      const state = await checkIngestStatus();
+      if (state === 'done') {
+        clearInterval(_ingestPoll);
+        onIngestDone();
+      } else if (state === 'error') {
+        clearInterval(_ingestPoll);
+        document.getElementById('ingest-running').innerHTML =
+          '<p style="color:var(--accent)">Ingestion failed. Check the terminal for details.</p>';
+      }
+    }, 3000);
+  }
+
+  function onIngestDone() {
+    document.getElementById('ingest-panel').style.display = 'none';
+    document.getElementById('input-wrap').style.display = 'block';
+    document.getElementById('messages').innerHTML = `
+      <div class="empty-state" id="empty-state">
+        <p>Library ready. Search your papers or ask for a summary.</p>
+      </div>`;
+    document.getElementById('input').focus();
+  }
+
+  async function startIngest() {
+    await fetch('/api/ingest', { method: 'POST' });
+    showIngestRunning();
+  }
+
   // ── State ──────────────────────────────────────────────────────
   let sessionId = localStorage.getItem('zori_session_id') || null;
   let busy = false;
@@ -522,8 +640,11 @@
   }
 
   // ── Init ───────────────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('input').focus();
+  document.addEventListener('DOMContentLoaded', async () => {
+    await initIngestState();
+    if (document.getElementById('input-wrap').style.display !== 'none') {
+      document.getElementById('input').focus();
+    }
   });
 </script>
 </body>

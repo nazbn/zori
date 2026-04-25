@@ -1,4 +1,5 @@
 import logging
+import threading
 import uuid
 import warnings
 
@@ -21,6 +22,7 @@ from zori.llm.providers import get_llm
 logger = logging.getLogger(__name__)
 
 _STATIC = Path(__file__).parent / "static"
+_STATE_FILE = Path(".zori/state.json")
 
 # ---------------------------------------------------------------------------
 # Session store — maps session_id → ZoriState dict
@@ -38,28 +40,31 @@ def _get_or_create(session_id: str | None) -> tuple[str, dict]:
 
 
 # ---------------------------------------------------------------------------
-# App setup (graph built once at startup)
+# App + shared state
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="Zori")
 
 _graph = None
+_services = None
+_ingest_status: dict = {"state": "idle", "error": None}  # idle | running | done | error
 
 
 @app.on_event("startup")
 def _startup():
-    global _graph
+    global _graph, _services
     try:
         services, config = _init_services()
     except (FileNotFoundError, ValueError) as e:
         raise RuntimeError(f"Setup error: {e}. Run 'zori init' and configure your credentials.") from e
+    _services = services
     llm = get_llm(config)
     _graph = build_graph(services.search_service, services.zotero, llm, services.lexical_index)
     logger.info("Zori graph ready.")
 
 
 # ---------------------------------------------------------------------------
-# API
+# API — chat
 # ---------------------------------------------------------------------------
 
 class ChatRequest(BaseModel):
@@ -103,6 +108,43 @@ def new_session(req: ChatRequest):
 
 
 # ---------------------------------------------------------------------------
+# API — ingest
+# ---------------------------------------------------------------------------
+
+class IngestStatusResponse(BaseModel):
+    state: str   # idle | running | done | error
+    error: str | None = None
+
+
+@app.get("/api/ingest/status", response_model=IngestStatusResponse)
+def ingest_status():
+    ingested = _STATE_FILE.exists()
+    if _ingest_status["state"] == "idle" and ingested:
+        return IngestStatusResponse(state="done")
+    return IngestStatusResponse(**_ingest_status)
+
+
+@app.post("/api/ingest")
+def start_ingest():
+    if _ingest_status["state"] == "running":
+        raise HTTPException(status_code=409, detail="Ingestion already running.")
+
+    def _run():
+        _ingest_status["state"] = "running"
+        _ingest_status["error"] = None
+        try:
+            _services.pipeline.run_full()
+            _ingest_status["state"] = "done"
+        except Exception as e:
+            logger.exception("Ingestion error")
+            _ingest_status["state"] = "error"
+            _ingest_status["error"] = str(e)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # Serve frontend
 # ---------------------------------------------------------------------------
 
@@ -119,9 +161,8 @@ def index():
 # ---------------------------------------------------------------------------
 
 def launch(host: str = "127.0.0.1", port: int = 7860, open_browser: bool = True):
-    import uvicorn
     import webbrowser
-    import threading
+    import uvicorn
 
     url = f"http://{host}:{port}"
     if open_browser:
