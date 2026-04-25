@@ -60,6 +60,7 @@ def _fresh_state() -> dict:
         "query": "",
         "intent": "",
         "target_key": None,
+        "display_query": "",
         "search_results": [],
         "summary": None,
         "response": None,
@@ -189,10 +190,6 @@ def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified it
 @app.command()
 def ui():
     """Launch the Zori web UI in your browser."""
-    try:
-        from zori.ui.app import launch
-    except ImportError:
-        console.print("[red]Gradio is not installed.[/red] Run: pip install zori[ui]")
-        raise typer.Exit(1)
+    from zori.ui.server import launch
     launch()
 

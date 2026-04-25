@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zori</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & base ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #f9f7f4;
+      --surface:     #ffffff;
+      --border:      #e5e2dd;
+      --text:        #1a1a1a;
+      --text-muted:  #6b6b6b;
+      --accent:      #c96442;
+      --accent-soft: #f5ede8;
+      --user-bg:     #1a1a1a;
+      --user-text:   #ffffff;
+      --radius:      14px;
+      --shadow:      0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
+      --font:        'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:          #1a1817;
+        --surface:     #242220;
+        --border:      #333130;
+        --text:        #f0ede8;
+        --text-muted:  #8a8480;
+        --accent:      #d4775a;
+        --accent-soft: #2e1f18;
+        --user-bg:     #f0ede8;
+        --user-text:   #1a1817;
+        --shadow:      0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+      }
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .logo span {
+      color: var(--accent);
+    }
+
+    .btn-new {
+      font-family: var(--font);
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+
+    .btn-new:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* ── Chat area ───────────────────────────────────────────────── */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 24px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      scroll-behavior: smooth;
+    }
+
+    /* Scrollbar */
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--text-muted);
+      padding-bottom: 60px;
+    }
+
+    .empty-state p {
+      font-size: 0.9rem;
+    }
+
+    /* Message rows */
+    .msg-row {
+      display: flex;
+      gap: 12px;
+      animation: fadeIn .2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-row.user {
+      flex-direction: row-reverse;
+    }
+
+    /* Avatars */
+    .avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .msg-row.user .avatar {
+      background: var(--user-bg);
+      color: var(--user-text);
+    }
+
+    .msg-row.assistant .avatar {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--border);
+    }
+
+    /* Bubbles */
+    .bubble {
+      max-width: 78%;
+      padding: 10px 15px;
+      border-radius: var(--radius);
+      font-size: 0.93rem;
+      line-height: 1.65;
+    }
+
+    .msg-row.user .bubble {
+      background: var(--user-bg);
+      color: var(--user-text);
+      border-radius: var(--radius) var(--radius) 3px var(--radius);
+    }
+
+    .msg-row.assistant .bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius) var(--radius) var(--radius) 3px;
+      box-shadow: var(--shadow);
+    }
+
+    /* Markdown in assistant bubbles */
+    .bubble a { color: var(--accent); text-decoration: none; }
+    .bubble a:hover { text-decoration: underline; }
+    .bubble strong { font-weight: 600; }
+    .bubble ol, .bubble ul { padding-left: 1.4em; }
+    .bubble ol li, .bubble ul li { margin: 3px 0; }
+    .bubble p + p { margin-top: 8px; }
+    .bubble p:last-child { margin-bottom: 0; }
+
+    /* Typing indicator */
+    .typing .bubble {
+      padding: 12px 15px;
+    }
+
+    .dot-pulse {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .dot-pulse span {
+      width: 6px;
+      height: 6px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .dot-pulse span:nth-child(2) { animation-delay: .2s; }
+    .dot-pulse span:nth-child(3) { animation-delay: .4s; }
+
+    @keyframes pulse {
+      0%, 60%, 100% { opacity: .3; transform: scale(1); }
+      30% { opacity: 1; transform: scale(1.2); }
+    }
+
+    /* ── Input area ──────────────────────────────────────────────── */
+    .input-wrap {
+      padding: 16px 24px 20px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      box-shadow: var(--shadow);
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .input-row:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent), var(--shadow);
+    }
+
+    textarea {
+      flex: 1;
+      font-family: var(--font);
+      font-size: 0.93rem;
+      color: var(--text);
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      line-height: 1.55;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    textarea::placeholder { color: var(--text-muted); }
+
+    .btn-send {
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 500;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: 7px 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: opacity .15s;
+      align-self: flex-end;
+    }
+
+    .btn-send:hover { opacity: .88; }
+    .btn-send:disabled { opacity: .4; cursor: default; }
+
+    .input-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 7px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">Zori<span>.</span></div>
+    <button class="btn-new" onclick="newSession()">New session</button>
+  </header>
+
+  <div class="messages" id="messages">
+    <div class="empty-state" id="empty-state">
+      <p>Search your library or ask for a summary.</p>
+    </div>
+  </div>
+
+  <div class="input-wrap">
+    <div class="input-row">
+      <textarea
+        id="input"
+        placeholder="Search papers, ask for a summary..."
+        rows="1"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+      <button class="btn-send" id="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+    <p class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</p>
+  </div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────
+  let sessionId = localStorage.getItem('zori_session_id') || null;
+  let busy = false;
+
+  // ── Helpers ────────────────────────────────────────────────────
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function scrollToBottom() {
+    const el = document.getElementById('messages');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function hideEmpty() {
+    const el = document.getElementById('empty-state');
+    if (el) el.remove();
+  }
+
+  function setBusy(val) {
+    busy = val;
+    document.getElementById('send-btn').disabled = val;
+    document.getElementById('input').disabled = val;
+  }
+
+  // ── Render markdown (minimal, no library needed) ───────────────
+  function renderMarkdown(text) {
+    // Bold
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Links
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+    // Numbered list
+    text = text.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+    // Wrap consecutive <li> in <ol>
+    text = text.replace(/(<li>.*<\/li>\n?)+/gs, m => `<ol>${m}</ol>`);
+    // Line breaks → paragraphs
+    const paras = text.split(/\n{2,}/);
+    return paras.map(p => {
+      p = p.trim();
+      if (!p) return '';
+      if (p.startsWith('<ol>') || p.startsWith('<ul>')) return p;
+      return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+    }).filter(Boolean).join('\n');
+  }
+
+  // ── Add a message bubble ───────────────────────────────────────
+  function addMessage(role, content) {
+    hideEmpty();
+    const messages = document.getElementById('messages');
+
+    const row = document.createElement('div');
+    row.className = `msg-row ${role}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = role === 'user' ? 'You' : 'Z';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    if (role === 'assistant') {
+      bubble.innerHTML = renderMarkdown(content);
+    } else {
+      bubble.textContent = content;
+    }
+
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+    messages.appendChild(row);
+    scrollToBottom();
+    return bubble;
+  }
+
+  function addTyping() {
+    hideEmpty();
+    const messages = document.getElementById('messages');
+
+    const row = document.createElement('div');
+    row.className = 'msg-row assistant typing';
+    row.id = 'typing-indicator';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = 'Z';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = '<div class="dot-pulse"><span></span><span></span><span></span></div>';
+
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+    messages.appendChild(row);
+    scrollToBottom();
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.remove();
+  }
+
+  // ── API calls ──────────────────────────────────────────────────
+  async function sendMessage() {
+    if (busy) return;
+    const input = document.getElementById('input');
+    const message = input.value.trim();
+    if (!message) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+    addMessage('user', message);
+    addTyping();
+    setBusy(true);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, message }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        removeTyping();
+        addMessage('assistant', `Something went wrong: ${err.detail}`);
+        return;
+      }
+
+      const data = await res.json();
+      sessionId = data.session_id;
+      localStorage.setItem('zori_session_id', sessionId);
+      removeTyping();
+      addMessage('assistant', data.response);
+    } catch (e) {
+      removeTyping();
+      addMessage('assistant', 'Could not reach the server. Is Zori running?');
+    } finally {
+      setBusy(false);
+      document.getElementById('input').focus();
+    }
+  }
+
+  async function newSession() {
+    try {
+      await fetch('/api/new-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+    } catch (_) {}
+
+    sessionId = null;
+    localStorage.removeItem('zori_session_id');
+
+    const messages = document.getElementById('messages');
+    messages.innerHTML = `
+      <div class="empty-state" id="empty-state">
+        <p>Search your library or ask for a summary.</p>
+      </div>`;
+    document.getElementById('input').focus();
+  }
+
+  // ── Init ───────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('input').focus();
+  });
+</script>
+</body>
+</html>

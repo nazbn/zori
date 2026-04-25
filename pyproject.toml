@@ -49,6 +49,9 @@ dependencies = [
     "typer>=0.12",
     "rich>=13.0",
     "langchain-chroma>=1.1.0",
+    # Web UI
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
 ]
 
 [project.urls]
@@ -59,7 +62,6 @@ Issues = "https://github.com/nazbn/zori/issues"
 [project.optional-dependencies]
 qdrant = ["qdrant-client>=1.9"]
 huggingface = ["sentence-transformers>=3.0", "langchain-huggingface>=0.1"]
-ui = ["gradio>=4.0"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",

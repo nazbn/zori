@@ -40,7 +40,7 @@ def render_response(state: dict) -> str:
 
     # Search results
     if results and intent == "search" and not pending:
-        return format_results(state.get("query", ""), results)
+        return format_results(state.get("display_query") or state.get("query", ""), results)
 
     response = state.get("response") or ""
 

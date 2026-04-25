@@ -32,7 +32,7 @@ def render_response_md(state: dict) -> str:
 
     # Search results
     if results and intent == "search" and not pending:
-        return format_results_md(state.get("query", ""), results)
+        return format_results_md(state.get("display_query") or state.get("query", ""), results)
 
     response = state.get("response") or ""
 

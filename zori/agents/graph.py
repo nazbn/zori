@@ -15,6 +15,7 @@ class ZoriState(TypedDict):
     query: str
     intent: str                        # "search" | "summarize" | "general"
     target_key: str | None             # Zotero item key, set before summarization
+    display_query: str                  # cleaned query shown in search results header
     search_results: list[SearchResult]
     summary: str | None
     response: str | None

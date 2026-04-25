@@ -115,6 +115,7 @@ def make_paper_finder_node(
             msg = f'Found {len(final)} result(s) for "{plan.display_query}".' if final else f'Nothing matched "{plan.display_query}".'
             return {
                 "search_results": final,
+                "display_query": plan.display_query,
                 "response": "",
                 "messages": [AIMessage(content=msg)],
             }
