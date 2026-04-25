@@ -199,9 +199,10 @@
     .bubble a:hover { text-decoration: underline; }
     .bubble strong { font-weight: 600; }
     .bubble ol, .bubble ul { padding-left: 1.4em; }
-    .bubble ol li, .bubble ul li { margin: 3px 0; }
+    .bubble ol li, .bubble ul li { margin: 5px 0; }
     .bubble p + p { margin-top: 8px; }
     .bubble p:last-child { margin-bottom: 0; }
+    .result-link { font-size: 0.82rem; color: var(--text-muted); display: block; margin-top: 1px; }
 
     /* Typing indicator */
     .typing .bubble {
@@ -359,23 +360,49 @@
   }
 
   // ── Render markdown (minimal, no library needed) ───────────────
-  function renderMarkdown(text) {
-    // Bold
+  function processInline(text) {
     text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    // Links
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-    // Numbered list
-    text = text.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
-    // Wrap consecutive <li> in <ol>
-    text = text.replace(/(<li>.*<\/li>\n?)+/gs, m => `<ol>${m}</ol>`);
-    // Line breaks → paragraphs
-    const paras = text.split(/\n{2,}/);
-    return paras.map(p => {
-      p = p.trim();
-      if (!p) return '';
-      if (p.startsWith('<ol>') || p.startsWith('<ul>')) return p;
-      return `<p>${p.replace(/\n/g, '<br>')}</p>`;
-    }).filter(Boolean).join('\n');
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+      '<a href="$2" target="_blank">$1</a>');
+    return text;
+  }
+
+  function renderMarkdown(text) {
+    const lines = text.split('\n');
+    const out = [];
+    let listItems = [];
+
+    function flushList() {
+      if (listItems.length) {
+        out.push(`<ol>${listItems.map(li => `<li>${li}</li>`).join('')}</ol>`);
+        listItems = [];
+      }
+    }
+
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const listMatch = line.match(/^(\d+)\.\s+(.+)$/);
+
+      if (listMatch) {
+        let content = processInline(listMatch[2].trimEnd());
+        // Attach any indented continuation lines (e.g. the Zotero link)
+        while (i + 1 < lines.length && /^ {2,}\S/.test(lines[i + 1])) {
+          i++;
+          content += `<span class="result-link">${processInline(lines[i].trim())}</span>`;
+        }
+        listItems.push(content);
+      } else if (line.trim() === '') {
+        // empty lines between list items are fine — ignore
+      } else {
+        flushList();
+        out.push(`<p>${processInline(line)}</p>`);
+      }
+      i++;
+    }
+
+    flushList();
+    return out.join('\n');
   }
 
   // ── Add a message bubble ───────────────────────────────────────
