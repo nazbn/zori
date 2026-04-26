@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zori"
-version = "0.3.0"
+version = "0.3.1"
 description = "An open-source multi-agent research assistant for your Zotero library"
 readme = "README.md"
 requires-python = ">=3.10"

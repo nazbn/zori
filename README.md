@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-  <img src="assets/logo-light.svg" alt="Zori" height="48">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nazbn/zori/master/assets/logo-dark.svg">
+  <img src="https://raw.githubusercontent.com/nazbn/zori/master/assets/logo-light.svg" alt="Zori" height="48">
 </picture>
 
 An open-source multi-agent research assistant that connects to your Zotero library.
@@ -30,11 +30,11 @@ zori ui
 
 Open `http://localhost:7860` in your browser. The web UI is the recommended interface on Windows, where terminal hyperlinks may not render correctly.
 
-![Zori search results](assets/search-1.png)
+![Zori search results](https://raw.githubusercontent.com/nazbn/zori/master/assets/search-1.png)
 
-![Zori structured paper summary](assets/summary-cdem.png)
+![Zori structured paper summary](https://raw.githubusercontent.com/nazbn/zori/master/assets/summary-cdem.png)
 
-![Zori paper summary saved as a Zotero note](assets/summary-cdem-2.png)
+![Zori paper summary saved as a Zotero note](https://raw.githubusercontent.com/nazbn/zori/master/assets/summary-cdem-2.png)
 
 ## Requirements
 
