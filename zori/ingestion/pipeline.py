@@ -95,6 +95,7 @@ class IngestionPipeline:
             try:
                 self._ingest_item(item)
                 self._state.setdefault("ingested", {})[item.key] = current_version
+                self._save_state()
                 console.print(f"  [green]✓[/green] {item.title[:70]}")
                 result.ingested += 1
                 if on_progress:

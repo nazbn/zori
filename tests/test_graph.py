@@ -13,6 +13,7 @@ def _fresh_state(**overrides) -> dict:
         "query": "",
         "intent": "",
         "target_key": None,
+        "display_query": "",
         "search_results": [],
         "summary": None,
         "response": None,

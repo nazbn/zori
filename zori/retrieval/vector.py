@@ -13,14 +13,16 @@ class ZoriVectorStore:
             collection_metadata={"hnsw:space": "cosine"},
         )
 
-    def add_chunks(self, chunks: list[TextChunk]) -> None:
+    def add_chunks(self, chunks: list[TextChunk], batch_size: int = 50) -> None:
         if not chunks:
             return
-        self._store.add_texts(
-            texts=[c.text for c in chunks],
-            ids=[f"{c.item_key}_{c.chunk_index}" for c in chunks],
-            metadatas=[{"item_key": c.item_key, "chunk_index": c.chunk_index} for c in chunks],
-        )
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            self._store.add_texts(
+                texts=[c.text for c in batch],
+                ids=[f"{c.item_key}_{c.chunk_index}" for c in batch],
+                metadatas=[{"item_key": c.item_key, "chunk_index": c.chunk_index} for c in batch],
+            )
 
     def delete_item(self, item_key: str) -> None:
         results = self._store.get(where={"item_key": item_key})

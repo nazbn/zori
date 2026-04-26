@@ -10,8 +10,29 @@ Search, summarize, and explore your research papers through a conversational int
 ![LangChain](https://img.shields.io/badge/LangChain-1.0+-yellow)
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-orange)
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-0.5+-purple)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![PyPI](https://img.shields.io/pypi/v/zori)
+
+## Features
+
+- **Hybrid search** — combines semantic (vector) and keyword (BM25) search across titles, abstracts, tags, and full text
+- **Summarization** — generates structured summaries and saves them as notes directly in Zotero
+- **Web UI** — clean chat interface built on FastAPI; no browser issues, works on any platform
+- **Conversational context** — references like "the first one" or "that paper" are resolved across turns
+- **Flexible LLM support** — OpenAI, Anthropic, or Ollama (free, runs locally)
+
+## Web UI
+
+```bash
+zori ui
+```
+
+Open `http://localhost:7860` in your browser. The web UI is the recommended interface on Windows, where terminal hyperlinks may not render correctly.
+
+![Zori search results and summarization request](assets/summary-1.png)
+
+![Zori structured paper summary saved as a Zotero note](assets/summary-2.png)
 
 ## Requirements
 
@@ -60,6 +81,13 @@ Run time depends on library size and embedding provider. You only need to do a f
 To index new or modified items added to Zotero since the last ingest, run `zori ingest --sync`.
 
 **5. Start the assistant**
+
+Web UI (recommended):
+```bash
+zori ui
+```
+
+Or use the terminal REPL:
 ```bash
 zori
 ```
@@ -79,7 +107,7 @@ Zori supports natural language queries for searching and summarizing papers:
 
 Queries use hybrid search (keyword + semantic). References to previous results are resolved in context (e.g. "the first one", "that paper").
 
-Type `exit` to quit, `--new-session` to reset conversation history.
+In the terminal REPL: type `exit` to quit, `--new-session` to reset conversation history.
 
 ## LLM options
 
@@ -111,4 +139,3 @@ or reach out at nazanin.bagherinejad@rwth-aachen.de.
 ---
 
 *This repository was developed with the assistance of [Claude](https://claude.ai) (Anthropic).*
-
