@@ -30,9 +30,11 @@ zori ui
 
 Open `http://localhost:7860` in your browser. The web UI is the recommended interface on Windows, where terminal hyperlinks may not render correctly.
 
-![Zori search results and summarization request](assets/summary-1.png)
+![Zori search results](assets/search-1.png)
 
-![Zori structured paper summary saved as a Zotero note](assets/summary-2.png)
+![Zori structured paper summary](assets/summary-cdem.png)
+
+![Zori paper summary saved as a Zotero note](assets/summary-cdem-2.png)
 
 ## Requirements
 
