@@ -16,7 +16,7 @@ Search, summarize, and explore your research papers through a conversational int
 
 ## Features
 
-- **Hybrid search** — combines semantic (vector) and keyword (BM25) search across titles, abstracts, tags, and full text
+- **Hybrid search** — combines semantic vector search and BM25 keyword search over your entire library
 - **Summarization** — generates structured summaries and saves them as notes directly in Zotero
 - **Web UI** — clean chat interface built on FastAPI; no browser issues, works on any platform
 - **Conversational context** — references like "the first one" or "that paper" are resolved across turns
