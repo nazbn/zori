@@ -63,7 +63,7 @@ Issues = "https://github.com/nazbn/zori/issues"
 qdrant = ["qdrant-client>=1.9"]
 huggingface = ["sentence-transformers>=3.0", "langchain-huggingface>=0.1"]
 dev = [
-    "pytest>=8.0",
+    "pytest>=9.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
 ]
@@ -74,8 +74,3 @@ zori = "zori.cli:app"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-
-[dependency-groups]
-dev = [
-    "pytest>=9.0.2",
-]
