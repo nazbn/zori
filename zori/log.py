@@ -64,5 +64,5 @@ def configure_logging(debug: bool = False) -> None:
         file_handler.setFormatter(file_formatter)
         root.addHandler(file_handler)
 
-    for noisy in ("httpcore", "httpx", "urllib3", "chromadb", "pyzotero", "openai", "langsmith"):
+    for noisy in ("httpcore", "httpx", "urllib3", "chromadb", "pyzotero", "openai", "langsmith", "asyncio"):
         logging.getLogger(noisy).setLevel(logging.WARNING)

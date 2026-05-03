@@ -131,7 +131,7 @@ LLM and embeddings are configured independently — any combination works.
 
 ## Tracing (optional)
 
-Zori supports [LangSmith](https://smith.langchain.com) tracing. To enable it, uncomment the LangSmith lines in `.env` and add your API key. Traces go to your own account.
+Zori supports [LangSmith](https://smith.langchain.com) tracing. To enable it, uncomment the LangSmith lines in `.env` and add your API key. Traces are sent to your LangSmith account.
 
 ## License
 

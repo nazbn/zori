@@ -79,8 +79,8 @@ def main(
     Use 'exit' to quit, '--new-session' to reset conversation history."""
     from dotenv import find_dotenv, load_dotenv
     load_dotenv(find_dotenv(usecwd=True))
-    configure_logging(debug=debug)
     if ctx.invoked_subcommand is None:
+        configure_logging(debug=debug)
         _repl()
 
 
@@ -174,6 +174,7 @@ def init():
 def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified items only (skips items already ingested).")):
     """Ingest your Zotero library. Downloads PDFs, extracts text, and builds the search index.
     Run without --sync for a full ingest, or with --sync to pick up new items since last run."""
+    configure_logging(debug=False)
     try:
         services, _ = _init_services()
     except (FileNotFoundError, ValueError) as e:
@@ -189,8 +190,6 @@ def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified it
 @app.command()
 def ui(debug: bool = typer.Option(False, "--debug", help="Enable debug logging.")):
     """Launch the Zori web UI in your browser."""
-    from dotenv import find_dotenv, load_dotenv
-    load_dotenv(find_dotenv(usecwd=True))
     from zori.ui.server import launch
     launch(debug=debug)
 
