@@ -48,6 +48,7 @@ def configure_logging(debug: bool = False) -> None:
     stream_handler.setFormatter(console_formatter)
 
     root = logging.getLogger()
+    root.handlers.clear()
     root.setLevel(log_level)
     root.addHandler(stream_handler)
 

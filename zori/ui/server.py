@@ -174,9 +174,9 @@ def index():
 # Launch helper (called by cli.py)
 # ---------------------------------------------------------------------------
 
-def launch(host: str = "127.0.0.1", port: int = 7860, open_browser: bool = True):
+def launch(host: str = "127.0.0.1", port: int = 7860, open_browser: bool = True, debug: bool = False):
     from zori.log import configure_logging
-    configure_logging(debug=False)
+    configure_logging(debug=debug)
     import webbrowser
     import uvicorn
 

@@ -187,8 +187,10 @@ def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified it
 
 
 @app.command()
-def ui():
+def ui(debug: bool = typer.Option(False, "--debug", help="Enable debug logging.")):
     """Launch the Zori web UI in your browser."""
+    from dotenv import find_dotenv, load_dotenv
+    load_dotenv(find_dotenv(usecwd=True))
     from zori.ui.server import launch
-    launch()
+    launch(debug=debug)
 
