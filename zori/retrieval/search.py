@@ -1,4 +1,4 @@
-import logging
+import structlog
 from dataclasses import dataclass
 
 from langchain_classic.retrievers import EnsembleRetriever
@@ -13,7 +13,7 @@ from zori.retrieval.retrievers import (
 )
 from zori.retrieval.vector import ZoriVectorStore
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 @dataclass

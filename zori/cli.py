@@ -1,4 +1,3 @@
-import logging
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="langchain_core")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="chromadb")
@@ -13,6 +12,7 @@ from rich.console import Console
 
 from zori.agents.graph import ZoriState, build_graph
 from zori.config import load_config
+from zori.log import configure_logging
 from zori.display.rich import render_response
 from zori.ingestion.pipeline import IngestionPipeline
 from zori.ingestion.zotero import ZoteroClient
@@ -77,10 +77,9 @@ def main(
 ):
     """Launch the interactive REPL. Type your query to search or summarize papers.
     Use 'exit' to quit, '--new-session' to reset conversation history."""
-    if debug:
-        logging.basicConfig(level=logging.DEBUG, format="%(name)s: %(message)s")
-        for noisy in ("httpcore", "httpx", "urllib3", "chromadb", "pyzotero"):
-            logging.getLogger(noisy).setLevel(logging.WARNING)
+    from dotenv import find_dotenv, load_dotenv
+    load_dotenv(find_dotenv(usecwd=True))
+    configure_logging(debug=debug)
     if ctx.invoked_subcommand is None:
         _repl()
 

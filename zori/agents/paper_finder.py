@@ -1,10 +1,10 @@
-import logging
+import structlog
 from typing import Callable
 
 from langchain_core.messages import AIMessage
 from pydantic import BaseModel, field_validator
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 from zori.agents.graph import ZoriState
 from zori.display.rich import format_authors
@@ -76,10 +76,9 @@ def make_paper_finder_node(
     query_analyzer = llm.with_structured_output(SearchPlan)
 
     def paper_finder_node(state: ZoriState) -> dict:
-        logger.debug(
-            "[paper_finder] query=%r intent=%r pending=%s target_key=%r",
-            state.get("query"), state.get("intent"),
-            state.get("pending_confirmation"), state.get("target_key"),
+        logger.debug("paper_finder_entry",
+            query=state.get("query"), intent=state.get("intent"),
+            pending=state.get("pending_confirmation"), target_key=state.get("target_key"),
         )
         if state.get("pending_confirmation"):
             return _handle_confirmation(state)
@@ -91,11 +90,10 @@ def make_paper_finder_node(
             _QUERY_ANALYZER_PROMPT.format(query=query)
         )
 
-        logger.debug(
-            "SearchPlan: display_query=%r title=%r author=%r year=%r tags=%r "
-            "lexical_queries=%r semantic_query=%r",
-            plan.display_query, plan.title, plan.author, plan.year, plan.tags,
-            plan.lexical_queries, plan.semantic_query,
+        logger.debug("search_plan",
+            display_query=plan.display_query, title=plan.title, author=plan.author,
+            year=plan.year, tags=plan.tags, lexical_queries=plan.lexical_queries,
+            semantic_query=plan.semantic_query,
         )
 
         results = search_service.hybrid_search(
@@ -108,7 +106,7 @@ def make_paper_finder_node(
         )
 
         final = _group_by_paper(results)[:MAX_DISPLAY]
-        logger.debug("[paper_finder] → %d result(s): %s", len(final), [r.item_key for r in final])
+        logger.debug("search_complete", n_results=len(final), keys=[r.item_key for r in final])
 
         # ---- Display mode (intent = "search") ----
         if mode == "display":

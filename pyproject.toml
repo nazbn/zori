@@ -52,6 +52,8 @@ dependencies = [
     # Web UI
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
+    # Logging
+    "structlog>=24.0",
 ]
 
 [project.urls]

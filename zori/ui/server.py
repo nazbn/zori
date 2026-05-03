@@ -1,4 +1,4 @@
-import logging
+import structlog
 import threading
 import uuid
 import warnings
@@ -19,7 +19,7 @@ from zori.cli import _fresh_state, _init_services
 from zori.display.markdown import render_response_md
 from zori.llm.providers import get_llm
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 _STATIC = Path(__file__).parent / "static"
 _STATE_FILE = Path(".zori/state.json")
@@ -175,6 +175,8 @@ def index():
 # ---------------------------------------------------------------------------
 
 def launch(host: str = "127.0.0.1", port: int = 7860, open_browser: bool = True):
+    from zori.log import configure_logging
+    configure_logging(debug=False)
     import webbrowser
     import uvicorn
 

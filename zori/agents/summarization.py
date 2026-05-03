@@ -1,11 +1,11 @@
-import logging
+import structlog
 from typing import Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, SystemMessage
 from pydantic import BaseModel
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 from zori.agents.graph import ZoriState
 from zori.display.rich import format_authors
@@ -54,7 +54,7 @@ def make_summarization_node(
     _lexical_index: LexicalIndex | None = lexical_index
 
     def summarization_node(state: ZoriState) -> dict:
-        logger.debug("[summarization] target_key=%r", state.get("target_key"))
+        logger.debug("summarization_entry", target_key=state.get("target_key"))
         nonlocal _metadata_store, _lexical_index
         if _metadata_store is None:
             _metadata_store = MetadataStore()

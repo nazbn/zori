@@ -1,4 +1,4 @@
-import logging
+import structlog
 from typing import Callable
 
 from langchain_core.messages import AIMessage
@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage
 from zori.agents.graph import ZoriState
 from zori.ingestion.zotero import ZoteroClient
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 def _format_note_html(summary: dict) -> str:
@@ -24,9 +24,9 @@ def _format_note_html(summary: dict) -> str:
 def make_writer_node(zotero_client: ZoteroClient) -> Callable[[ZoriState], dict]:
     """Return a LangGraph node that saves the current summary as a Zotero note."""
     def writer_node(state: ZoriState) -> dict:
-        logger.debug(
-            "[writer] query=%r target_key=%r has_summary=%s",
-            state.get("query"), state.get("target_key"), state.get("summary") is not None,
+        logger.debug("writer_entry",
+            query=state.get("query"), target_key=state.get("target_key"),
+            has_summary=state.get("summary") is not None,
         )
         reply = state["query"].strip().lower()
 
