@@ -57,19 +57,24 @@ class SearchService:
         retrievers = []
 
         if tags and self._lexical_index:
-            retrievers.append(TagsRetriever(lexical_index=self._lexical_index, tags=tags))
+            retrievers.append(TagsRetriever(lexical_index=self._lexical_index, tags=tags,
+                                            metadata={"query": " ".join(tags)}))
 
         if title and self._lexical_index:
-            retrievers.append(TitleRetriever(lexical_index=self._lexical_index, title=title))
+            retrievers.append(TitleRetriever(lexical_index=self._lexical_index, title=title,
+                                             metadata={"query": title}))
 
         if lexical_queries and self._lexical_index:
             for lq in lexical_queries:
-                retrievers.append(PapersRetriever(lexical_index=self._lexical_index, query=lq))
-                retrievers.append(ChunksRetriever(lexical_index=self._lexical_index, query=lq))
+                retrievers.append(PapersRetriever(lexical_index=self._lexical_index, query=lq,
+                                                  metadata={"query": lq}))
+                retrievers.append(ChunksRetriever(lexical_index=self._lexical_index, query=lq,
+                                                  metadata={"query": lq}))
 
         if semantic_query:
             retrievers.append(self._vector_store.as_retriever(
                 search_kwargs={"k": top_k * 2},
+                metadata={"query": semantic_query},
             ))
 
         if author or year:
@@ -77,6 +82,7 @@ class SearchService:
                 metadata_store=self._metadata_store,
                 author=author,
                 year=year,
+                metadata={"query": " ".join(filter(None, [author, year]))},
             ))
 
         if not retrievers:
