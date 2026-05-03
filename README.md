@@ -129,6 +129,10 @@ LLM and embeddings are configured independently — any combination works.
 | Ollama (free, local) | `provider: ollama`, `model: nomic-embed-text` | Ollama running + `ollama pull nomic-embed-text` |
 | HuggingFace (free, local) | `provider: huggingface`, `model: <model>` (e.g. `all-MiniLM-L6-v2`) | `pip install "zori[huggingface]"` |
 
+## Tracing (optional)
+
+Zori supports [LangSmith](https://smith.langchain.com) tracing. To enable it, uncomment the LangSmith lines in `.env` and add your API key. Traces go to your own account.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
