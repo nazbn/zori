@@ -69,6 +69,9 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
 ]
+eval = [
+    "deepeval>=2.0",
+]
 
 [project.scripts]
 zori = "zori.cli:app"

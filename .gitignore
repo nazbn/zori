@@ -18,6 +18,12 @@ config.yaml
 # Vector store
 .zori/
 
+# Eval dataset (personal library content, not shared)
+scripts/eval_dataset.yaml
+
+# DeepEval cache
+.deepeval/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,0 +1,25 @@
+# Zori evaluation dataset
+# Copy this file to scripts/eval_dataset.yaml and fill in queries from your own library.
+# eval_dataset.yaml is gitignored — it contains content specific to your Zotero library.
+#
+# Fields:
+#   query:           natural language search query (required)
+#   expected_output: factual statement about what the library contains for this query,
+#                    e.g. "The library contains X papers including Y (year) and Z (year)."
+#   year_from:       earliest year filter, inclusive (optional)
+#   year_to:         latest year filter, inclusive (optional)
+#   author:          author name filter (optional)
+#   tags:            list of tag filters (optional)
+#
+# Run with:
+#   deepeval test run tests/test_eval.py
+# or:
+#   uv run pytest tests/test_eval.py -v
+
+- query: "transformer papers for image processing"
+  expected_output: "The library contains transformer-based image processing papers including the Pre-Trained Image Processing Transformer (2021) and Swin Transformer V2 (2022)."
+
+- query: "benchmarking papers from 2020 to 2022"
+  expected_output: "The library contains benchmark papers from 2020-2022 including a 2020 paper benchmarking super-resolution on real data and a 2022 benchmark of deep learning SR models."
+  year_from: "2020"
+  year_to: "2022"

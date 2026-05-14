@@ -172,6 +172,13 @@ class LexicalIndex:
         ).fetchone()
         return row["chunk_text"] if row else ""
 
+    def get_abstract(self, item_key: str) -> str:
+        """Return the abstract for item_key, or empty string if not found."""
+        row = self._conn.execute(
+            "SELECT abstract FROM papers_fts WHERE item_key = ? LIMIT 1", (item_key,)
+        ).fetchone()
+        return row["abstract"] if row else ""
+
     def get_full_text(self, item_key: str) -> str:
         """Reconstruct the full paper text from stored chunks, ordered by chunk_index."""
         rows = self._conn.execute(
