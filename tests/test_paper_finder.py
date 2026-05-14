@@ -8,10 +8,11 @@ from zori.agents.paper_finder import SearchPlan
 # ---------------------------------------------------------------------------
 
 def test_empty_string_fields_become_none():
-    plan = SearchPlan(display_query="q", title="", author="", year="", semantic_query="")
+    plan = SearchPlan(display_query="q", title="", author="", year_from="", year_to="", semantic_query="")
     assert plan.title is None
     assert plan.author is None
-    assert plan.year is None
+    assert plan.year_from is None
+    assert plan.year_to is None
     assert plan.semantic_query is None
 
 
@@ -26,23 +27,26 @@ def test_non_empty_values_preserved():
         display_query="transformers",
         title="Attention is All You Need",
         author="Vaswani",
-        year="2017",
+        year_from="2017",
+        year_to="2017",
         tags=["NLP", "transformers"],
         lexical_queries=["attention", "self-attention"],
         semantic_query="transformer architecture",
     )
     assert plan.title == "Attention is All You Need"
     assert plan.author == "Vaswani"
-    assert plan.year == "2017"
+    assert plan.year_from == "2017"
+    assert plan.year_to == "2017"
     assert plan.tags == ["NLP", "transformers"]
     assert plan.lexical_queries == ["attention", "self-attention"]
     assert plan.semantic_query == "transformer architecture"
 
 
 def test_mixed_empty_and_non_empty_fields():
-    plan = SearchPlan(display_query="q", author="Smith", title="", tags=[], year="2023")
+    plan = SearchPlan(display_query="q", author="Smith", title="", tags=[], year_from="2020", year_to="2023")
     assert plan.author == "Smith"
-    assert plan.year == "2023"
+    assert plan.year_from == "2020"
+    assert plan.year_to == "2023"
     assert plan.title is None
     assert plan.tags is None
 

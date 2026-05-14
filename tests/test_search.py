@@ -91,7 +91,7 @@ def test_hybrid_search_year_boosts_matching_papers(mock_stores):
     lexical_index.search_chunks.return_value = []
 
     svc = SearchService(vector_store, metadata_store, lexical_index)
-    results = svc.hybrid_search(lexical_queries=["neural"], year="2023")
+    results = svc.hybrid_search(lexical_queries=["neural"], year_from="2023", year_to="2023")
     keys = [r.item_key for r in results]
     assert "P1" in keys
     assert "P2" in keys

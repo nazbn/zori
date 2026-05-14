@@ -102,16 +102,20 @@ class MetadataStore:
 
     def filter(
         self,
-        year: str | None = None,
+        year_from: str | None = None,
+        year_to: str | None = None,
         tags: list[str] | None = None,
         authors: list[str] | None = None,
     ) -> list[str]:
         """Return item keys matching all provided criteria."""
         conditions: list[str] = []
         params: list = []
-        if year:
-            conditions.append("year = ?")
-            params.append(year)
+        if year_from:
+            conditions.append("year >= ?")
+            params.append(year_from)
+        if year_to:
+            conditions.append("year <= ?")
+            params.append(year_to)
         if tags:
             tag_conds = " OR ".join('LOWER(tags) LIKE ?' for _ in tags)
             conditions.append(f"({tag_conds})")

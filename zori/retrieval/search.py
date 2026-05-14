@@ -44,7 +44,8 @@ class SearchService:
         semantic_query: str | None = None,
         title: str | None = None,
         author: str | None = None,
-        year: str | None = None,
+        year_from: str | None = None,
+        year_to: str | None = None,
         tags: list[str] | None = None,
         top_k: int = 10,
     ) -> list[SearchResult]:
@@ -77,12 +78,19 @@ class SearchService:
                 metadata={"query": semantic_query},
             ))
 
-        if author or year:
+        if author or year_from or year_to:
+            year_parts = []
+            if year_from:
+                year_parts.append(f">={year_from}")
+            if year_to:
+                year_parts.append(f"<={year_to}")
+            year_str = " ".join(year_parts) if year_parts else None
             retrievers.append(MetadataRetriever(
                 metadata_store=self._metadata_store,
                 author=author,
-                year=year,
-                metadata={"query": " ".join(filter(None, [author, year]))},
+                year_from=year_from,
+                year_to=year_to,
+                metadata={"query": " ".join(filter(None, [author, year_str]))},
             ))
 
         if not retrievers:

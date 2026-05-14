@@ -22,12 +22,13 @@ class SearchPlan(BaseModel):
     display_query: str
     title: str | None = None            # set only for specific paper/acronym/tool names
     author: str | None = None
-    year: str | None = None
+    year_from: str | None = None        # earliest year, inclusive (e.g. "2020" for "after 2019")
+    year_to: str | None = None          # latest year, inclusive (e.g. "2021" for "before 2022")
     tags: list[str] | None = None
     lexical_queries: list[str] | None = None  # one or more BM25 queries on papers_fts + chunks_fts
     semantic_query: str | None = None          # ChromaDB vector search
 
-    @field_validator("title", "author", "year", "semantic_query", mode="before")
+    @field_validator("title", "author", "year_from", "year_to", "semantic_query", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
         return None if v == "" else v
@@ -49,7 +50,10 @@ Analyze the query and fill the search plan fields:
 - display_query: the core topic, paper name, or author name (cleaned up, never filler words)
 - title: the name of a specific paper, system, or acronym the user is asking for by name
 - author: a researcher's name the user wants to filter by
-- year: a publication year the user wants to filter by
+- year_from: earliest publication year, inclusive — use for "after 2019" (set "2020"), \
+"since 2019" or "from 2019" (set "2019"), or the start of a range
+- year_to: latest publication year, inclusive — use for "before 2022" (set "2021"), \
+"up to 2022" (set "2022"), or the end of a range; for an exact year set both to that year
 - tags: domain keywords the user wants to filter by
 - lexical_queries: list of BM25 keyword queries — provide multiple when the query \
 can be expressed in different ways (e.g. an acronym and its expansion, or a term \
@@ -92,8 +96,8 @@ def make_paper_finder_node(
 
         logger.debug("search_plan",
             display_query=plan.display_query, title=plan.title, author=plan.author,
-            year=plan.year, tags=plan.tags, lexical_queries=plan.lexical_queries,
-            semantic_query=plan.semantic_query,
+            year_from=plan.year_from, year_to=plan.year_to, tags=plan.tags,
+            lexical_queries=plan.lexical_queries, semantic_query=plan.semantic_query,
         )
 
         results = search_service.hybrid_search(
@@ -101,7 +105,8 @@ def make_paper_finder_node(
             semantic_query=plan.semantic_query,
             title=plan.title,
             author=plan.author,
-            year=plan.year,
+            year_from=plan.year_from,
+            year_to=plan.year_to,
             tags=plan.tags,
         )
 

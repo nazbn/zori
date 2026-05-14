@@ -72,11 +72,35 @@ def test_delete_nonexistent_does_not_raise(store):
 
 # --- filter ---
 
-def test_filter_by_year(store):
+def test_filter_by_exact_year(store):
     store.save(_make_item(key="P1", year="2023"))
     store.save(_make_item(key="P2", year="2024"))
-    results = store.filter(year="2023")
+    results = store.filter(year_from="2023", year_to="2023")
     assert results == ["P1"]
+
+
+def test_filter_by_year_from(store):
+    store.save(_make_item(key="P1", year="2020"))
+    store.save(_make_item(key="P2", year="2022"))
+    store.save(_make_item(key="P3", year="2024"))
+    results = store.filter(year_from="2022")
+    assert set(results) == {"P2", "P3"}
+
+
+def test_filter_by_year_to(store):
+    store.save(_make_item(key="P1", year="2020"))
+    store.save(_make_item(key="P2", year="2022"))
+    store.save(_make_item(key="P3", year="2024"))
+    results = store.filter(year_to="2022")
+    assert set(results) == {"P1", "P2"}
+
+
+def test_filter_by_year_range(store):
+    store.save(_make_item(key="P1", year="2019"))
+    store.save(_make_item(key="P2", year="2021"))
+    store.save(_make_item(key="P3", year="2023"))
+    results = store.filter(year_from="2020", year_to="2022")
+    assert results == ["P2"]
 
 
 def test_filter_by_tag(store):
@@ -98,7 +122,7 @@ def test_filter_by_author(store):
 def test_filter_combined(store):
     store.save(_make_item(key="P1", year="2023", tags=["rag"]))
     store.save(_make_item(key="P2", year="2023", tags=["cv"]))
-    results = store.filter(year="2023", tags=["rag"])
+    results = store.filter(year_from="2023", year_to="2023", tags=["rag"])
     assert results == ["P1"]
 
 

@@ -71,19 +71,21 @@ class TitleRetriever(BaseRetriever):
 
 
 class MetadataRetriever(BaseRetriever):
-    """Retriever that boosts papers matching author and/or year."""
+    """Retriever that boosts papers matching author and/or year range."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     metadata_store: Any
     author: str | None = None
-    year: str | None = None
+    year_from: str | None = None
+    year_to: str | None = None
 
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun
     ) -> list[Document]:
         keys = self.metadata_store.filter(
-            year=self.year,
+            year_from=self.year_from,
+            year_to=self.year_to,
             authors=[self.author] if self.author else None,
         )
         return [Document(page_content=key, metadata={"item_key": key}) for key in keys]
