@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4.0 — Observability & Year Range Filtering
+
+### What's new
+
+- Structured logging with `structlog` — human-readable in terminal, JSON to file via `LOG_DIR`
+- `--debug` flag on `zori` and `zori ui` enables DEBUG-level logs
+- LangSmith tracing support — opt-in via `.env`, per-retriever query metadata for accurate traces
+- Year range filtering — queries like "papers after 2019" or "papers from 2020 to 2022" now work correctly via `year_from` / `year_to`
+- DeepEval retrieval quality eval — optional `[eval]` extra with parametrized pytest tests; see `scripts/eval_dataset.yaml.example`
+
+---
+
 ## v0.3.0 — Web UI & Ingestion Improvements
 
 ### What's new

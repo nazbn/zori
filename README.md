@@ -129,9 +129,11 @@ LLM and embeddings are configured independently — any combination works.
 | Ollama (free, local) | `provider: ollama`, `model: nomic-embed-text` | Ollama running + `ollama pull nomic-embed-text` |
 | HuggingFace (free, local) | `provider: huggingface`, `model: <model>` (e.g. `all-MiniLM-L6-v2`) | `pip install "zori[huggingface]"` |
 
-## Tracing (optional)
+## Observability (optional)
 
-Zori supports [LangSmith](https://smith.langchain.com) tracing. To enable it, uncomment the LangSmith lines in `.env` and add your API key. Traces are sent to your LangSmith account.
+Zori supports [LangSmith](https://smith.langchain.com) tracing. To enable it, add your API key to `.env`. Traces are sent to your LangSmith account.
+
+Retrieval quality can be measured with the optional [DeepEval](https://github.com/confident-ai/deepeval) eval suite — see `scripts/eval_dataset.yaml.example`.
 
 ## License
 
