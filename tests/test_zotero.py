@@ -1,5 +1,5 @@
 import pytest
-from zori.ingestion.zotero import ZoteroClient, ZoteroItem, ZoteroAttachment
+from zori.ingestion.zotero import ZoteroClient, ZoteroItem, ZoteroAttachment, ZoteroCollection
 
 
 # --- Fixtures ---
@@ -135,6 +135,87 @@ def test_parse_items_multiple_attachments():
     items = client._parse_items([raw_paper, att1, att2])
 
     assert len(items[0].attachments) == 2
+
+
+# --- fetch_collections / find_collection ---
+
+def _make_raw_collection(key="COL1", name="My Collection", parent=False, num_items=3):
+    return {
+        "key": key,
+        "data": {
+            "name": name,
+            "parentCollection": "PARENT1" if parent else False,
+        },
+        "meta": {"numItems": num_items},
+    }
+
+
+def test_fetch_collections_parses_response():
+    client = _make_client()
+    client._zot.everything.return_value = [
+        _make_raw_collection(key="C1", name="AI Papers"),
+        _make_raw_collection(key="C2", name="Subfield", parent=True),
+    ]
+    cols = client.fetch_collections()
+    assert len(cols) == 2
+    assert cols[0].key == "C1"
+    assert cols[0].name == "AI Papers"
+    assert cols[0].parent_key is None
+    assert cols[0].num_items == 3
+    assert cols[1].parent_key == "PARENT1"
+
+
+def test_find_collection_exact_match():
+    client = _make_client()
+    client._zot.everything.return_value = [_make_raw_collection(key="C1", name="AI Papers")]
+    col = client.find_collection("AI Papers")
+    assert col is not None
+    assert col.key == "C1"
+
+
+def test_find_collection_case_insensitive():
+    client = _make_client()
+    client._zot.everything.return_value = [_make_raw_collection(key="C1", name="AI Papers")]
+    col = client.find_collection("ai papers")
+    assert col is not None
+    assert col.key == "C1"
+
+
+def test_find_collection_not_found():
+    client = _make_client()
+    client._zot.everything.return_value = [_make_raw_collection(key="C1", name="AI Papers")]
+    assert client.find_collection("Nonexistent") is None
+
+
+def test_find_collection_path_walks_hierarchy():
+    client = _make_client()
+    client._zot.everything.return_value = [
+        _make_raw_collection(key="P1", name="Super-resolution", parent=False),
+        {"key": "C1", "data": {"name": "DEM", "parentCollection": "P1"}, "meta": {"numItems": 7}},
+        _make_raw_collection(key="C2", name="DEM", parent=False),  # top-level DEM
+    ]
+    col = client.find_collection("Super-resolution/DEM")
+    assert col is not None
+    assert col.key == "C1"
+
+
+def test_find_collection_path_plain_name_matches_top_level_first():
+    client = _make_client()
+    client._zot.everything.return_value = [
+        _make_raw_collection(key="C2", name="DEM", parent=False),
+        {"key": "C1", "data": {"name": "DEM", "parentCollection": "P1"}, "meta": {"numItems": 7}},
+    ]
+    col = client.find_collection("DEM")
+    assert col is not None
+    assert col.key == "C2"
+
+
+def test_find_collection_path_not_found():
+    client = _make_client()
+    client._zot.everything.return_value = [
+        _make_raw_collection(key="P1", name="Super-resolution", parent=False),
+    ]
+    assert client.find_collection("Super-resolution/DEM") is None
 
 
 # --- helpers ---

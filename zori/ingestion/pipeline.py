@@ -43,11 +43,18 @@ class IngestionPipeline:
     def run_full(
         self,
         on_progress: Callable[[str, str], None] | None = None,
+        collection_key: str | None = None,
+        collection_name: str | None = None,
     ) -> IngestionResult:
-        """Ingest the entire library, re-ingesting items whose version has changed."""
-        console.print("Fetching items from Zotero...")
-        items = self._zotero.fetch_all_items()
-        console.print(f"Ingesting {len(items)} items from Zotero...\n")
+        """Ingest the entire library (or a specific collection), re-ingesting items whose version has changed."""
+        if collection_key:
+            label = f'collection "{collection_name or collection_key}"'
+            console.print(f"Fetching items from {label}...")
+            items = self._zotero.fetch_collection_items(collection_key)
+        else:
+            console.print("Fetching items from Zotero...")
+            items = self._zotero.fetch_all_items()
+        console.print(f"Ingesting {len(items)} items...\n")
         result = self._process_items(items, on_progress=on_progress)
         self._save_state()
         self._print_summary(result)
@@ -56,11 +63,24 @@ class IngestionPipeline:
     def run_sync(
         self,
         on_progress: Callable[[str, str], None] | None = None,
+        collection_key: str | None = None,
+        collection_name: str | None = None,
     ) -> IngestionResult:
-        """Ingest only items added or changed since the last sync."""
+        """Ingest only items added or changed since the last sync, optionally scoped to a collection."""
         since = self._state.get("library_version", 0)
-        console.print(f"Checking for new or changed items since version {since}...")
-        items = self._zotero.fetch_new_items(since_version=since)
+        if collection_key:
+            label = f'collection "{collection_name or collection_key}"'
+            console.print(f"Checking for new or changed items in {label} since version {since}...")
+            # Fetch new items globally, then filter to those in the collection
+            new_items = self._zotero.fetch_new_items(since_version=since)
+            if not new_items:
+                console.print("Nothing new.")
+                return IngestionResult()
+            col_keys = {item.key for item in self._zotero.fetch_collection_items(collection_key)}
+            items = [i for i in new_items if i.key in col_keys]
+        else:
+            console.print(f"Checking for new or changed items since version {since}...")
+            items = self._zotero.fetch_new_items(since_version=since)
         if not items:
             console.print("Nothing new.")
             return IngestionResult()

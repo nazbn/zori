@@ -4,6 +4,14 @@ from pyzotero import zotero
 
 
 @dataclass
+class ZoteroCollection:
+    key: str
+    name: str
+    parent_key: str | None = None
+    num_items: int = 0
+
+
+@dataclass
 class ZoteroAttachment:
     key: str
     filename: str
@@ -30,9 +38,55 @@ class ZoteroClient:
     def __init__(self, library_id: str, library_type: str, api_key: str):
         self._zot = zotero.Zotero(library_id, library_type, api_key)
 
+    def fetch_collections(self) -> list[ZoteroCollection]:
+        """Return all top-level and nested collections in the library."""
+        raw = self._zot.everything(self._zot.collections())
+        return [
+            ZoteroCollection(
+                key=c["key"],
+                name=c["data"]["name"],
+                parent_key=c["data"].get("parentCollection") or None,
+                num_items=c["meta"].get("numItems", 0),
+            )
+            for c in raw
+        ]
+
+    def find_collection(self, name: str) -> ZoteroCollection | None:
+        """Find a collection by name or path (case-insensitive).
+        Path syntax: "Parent/Child/Grandchild" walks the hierarchy level by level.
+        Plain name matches any collection regardless of depth (first match wins)."""
+        cols = self.fetch_collections()
+        parts = [p.strip() for p in name.split("/")]
+
+        if len(parts) == 1:
+            name_lower = name.lower()
+            for col in cols:
+                if col.name.lower() == name_lower:
+                    return col
+            return None
+
+        # Walk hierarchy level by level
+        parent_key: str | None = None
+        current: ZoteroCollection | None = None
+        for part in parts:
+            part_lower = part.lower()
+            current = next(
+                (c for c in cols if c.name.lower() == part_lower and c.parent_key == parent_key),
+                None,
+            )
+            if current is None:
+                return None
+            parent_key = current.key
+        return current
+
     def fetch_all_items(self) -> list[ZoteroItem]:
         """Fetch the entire library in one paginated call."""
         raw = self._zot.everything(self._zot.items())
+        return self._parse_items(raw)
+
+    def fetch_collection_items(self, collection_key: str) -> list[ZoteroItem]:
+        """Fetch all items in a specific collection."""
+        raw = self._zot.everything(self._zot.collection_items(collection_key))
         return self._parse_items(raw)
 
     def fetch_new_items(self, since_version: int) -> list[ZoteroItem]:

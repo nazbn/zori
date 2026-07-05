@@ -171,9 +171,13 @@ def init():
 
 
 @app.command()
-def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified items only (skips items already ingested).")):
+def ingest(
+    sync: bool = typer.Option(False, "--sync", help="Sync new/modified items only."),
+    collection: str | None = typer.Option(None, "--collection", "-c", help="Ingest only items in this collection (by name)."),
+):
     """Ingest your Zotero library. Downloads PDFs, extracts text, and builds the search index.
-    Run without --sync for a full ingest, or with --sync to pick up new items since last run."""
+    Run without --sync for a full ingest, or with --sync to pick up new items since last run.
+    Use --collection to scope ingestion to a specific collection."""
     configure_logging(debug=False)
     try:
         services, _ = _init_services()
@@ -181,10 +185,50 @@ def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified it
         console.print(f"[red]Setup error:[/red] {e}")
         raise typer.Exit(1)
 
+    collection_key: str | None = None
+    if collection:
+        col = services.zotero.find_collection(collection)
+        if col is None:
+            console.print(f"[red]Collection not found:[/red] {collection!r}")
+            console.print("Run [bold]zori collections[/bold] to see available collections.")
+            raise typer.Exit(1)
+        collection_key = col.key
+
     if sync:
-        services.pipeline.run_sync()
+        services.pipeline.run_sync(collection_key=collection_key, collection_name=collection)
     else:
-        services.pipeline.run_full()
+        services.pipeline.run_full(collection_key=collection_key, collection_name=collection)
+
+
+@app.command()
+def collections():
+    """List all collections in your Zotero library."""
+    configure_logging(debug=False)
+    try:
+        services, _ = _init_services()
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"[red]Setup error:[/red] {e}")
+        raise typer.Exit(1)
+
+    cols = services.zotero.fetch_collections()
+    if not cols:
+        console.print("No collections found.")
+        return
+
+    def _print_level(parent_key: str | None, indent: int) -> None:
+        children = sorted(
+            [c for c in cols if c.parent_key == parent_key],
+            key=lambda c: c.name.lower(),
+        )
+        for col in children:
+            n = col.num_items
+            label = f"{'item' if n == 1 else 'items'}"
+            prefix = "  " + "  " * indent + ("└─ " if indent > 0 else "")
+            name = f"[bold]{col.name}[/bold]" if indent == 0 else col.name
+            console.print(f"{prefix}{name}  [dim]({n} {label})[/dim]")
+            _print_level(col.key, indent + 1)
+
+    _print_level(None, 0)
 
 
 @app.command()
