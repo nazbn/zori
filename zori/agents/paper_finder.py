@@ -2,6 +2,7 @@ import structlog
 from typing import Callable
 
 from langchain_core.messages import AIMessage
+from langgraph.types import interrupt
 from pydantic import BaseModel, field_validator
 
 logger = structlog.get_logger()
@@ -80,12 +81,7 @@ def make_paper_finder_node(
     query_analyzer = llm.with_structured_output(SearchPlan)
 
     def paper_finder_node(state: ZoriState) -> dict:
-        logger.debug("paper_finder_entry",
-            query=state.get("query"), intent=state.get("intent"),
-            pending=state.get("pending_confirmation"), target_key=state.get("target_key"),
-        )
-        if state.get("pending_confirmation"):
-            return _handle_confirmation(state)
+        logger.debug("paper_finder_entry", query=state.get("query"), intent=state.get("intent"))
 
         query = state["query"]
         mode = "find_for_summarize" if state.get("intent") == "summarize" else "display"
@@ -134,18 +130,19 @@ def make_paper_finder_node(
         if len(final) == 1:
             top = final[0]
             authors_str = format_authors(top.authors)
-            response = (
+            question = (
                 f'I found "{top.title}" by {authors_str} ({top.year or "?"}).\n'
                 "Shall I summarize this one? (yes / no)"
             )
-            return {
-                "search_results": final,
-                "pending_confirmation": True,
-                "confirmation_type": "paper_selection",
-                "candidate_key": top.item_key,
-                "response": response,
-                "messages": [AIMessage(content=response)],
-            }
+            reply = interrupt({"text": question, "zotero_key": top.item_key})
+            if reply.strip().lower() in ("yes", "y"):
+                return {
+                    "search_results": final,
+                    "target_key": top.item_key,
+                    "candidate_key": top.item_key,
+                }
+            response = "No problem. What else can I help you with?"
+            return {"response": response, "messages": [AIMessage(content=response)]}
 
         # Multiple plausible results — ask the user to pick
         lines = [f'I found several papers that could match "{plan.display_query}". Which one?\n']
@@ -153,16 +150,19 @@ def make_paper_finder_node(
             authors_str = format_authors(r.authors)
             lines.append(f"  {i}. {r.title} — {authors_str} ({r.year or '?'})")
         lines.append("\nReply with a number, or 'none' to cancel.")
-        response = "\n".join(lines)
+        question = "\n".join(lines)
 
-        return {
-            "search_results": final,
-            "pending_confirmation": True,
-            "confirmation_type": "paper_selection",
-            "candidate_key": None,
-            "response": response,
-            "messages": [AIMessage(content=response)],
-        }
+        reply = interrupt({"text": question, "zotero_key": None})
+        reply = reply.strip().lower()
+
+        if reply.isdigit():
+            idx = int(reply) - 1
+            if 0 <= idx < len(final[:3]):
+                chosen = final[idx]
+                return {"search_results": final, "target_key": chosen.item_key, "candidate_key": chosen.item_key}
+
+        response = "No problem. What else can I help you with?"
+        return {"response": response, "messages": [AIMessage(content=response)]}
 
     return paper_finder_node
 
@@ -180,39 +180,3 @@ def _group_by_paper(results: list[SearchResult]) -> list[SearchResult]:
     return sorted(seen.values(), key=lambda r: r.score, reverse=True)
 
 
-# ---------------------------------------------------------------------------
-# Confirmation handler
-# ---------------------------------------------------------------------------
-
-def _handle_confirmation(state: ZoriState) -> dict:
-    """Process the user's yes/no or numbered reply for paper selection."""
-    reply = state["query"].strip().lower()
-    results = state.get("search_results", [])
-
-    if reply.isdigit():
-        idx = int(reply) - 1
-        if 0 <= idx < len(results):
-            return {
-                "target_key": results[idx].item_key,
-                "pending_confirmation": False,
-                "confirmation_type": None,
-                "candidate_key": None,
-            }
-
-    if reply in ("yes", "y"):
-        return {
-            "target_key": state.get("candidate_key"),
-            "pending_confirmation": False,
-            "confirmation_type": None,
-            "candidate_key": None,
-        }
-
-    response = "No problem. What else can I help you with?"
-    return {
-        "target_key": None,
-        "pending_confirmation": False,
-        "confirmation_type": None,
-        "candidate_key": None,
-        "response": response,
-        "messages": [AIMessage(content=response)],
-    }

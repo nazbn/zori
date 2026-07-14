@@ -12,11 +12,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import HumanMessage
+from langgraph.types import Command
 from pydantic import BaseModel
 
 from zori.agents.graph import build_graph
-from zori.cli import _fresh_state, _init_services
-from zori.display.markdown import render_response_md
+from zori.cli import _init_services
+from zori.display.markdown import render_interrupt_md, render_response_md
 from zori.llm.providers import get_llm
 
 logger = structlog.get_logger()
@@ -25,17 +26,17 @@ _STATIC = Path(__file__).parent / "static"
 _STATE_FILE = Path(".zori/state.json")
 
 # ---------------------------------------------------------------------------
-# Session store — maps session_id → ZoriState dict
+# Session store — maps session_id → thread_id (graph state managed by MemorySaver)
 # ---------------------------------------------------------------------------
 
-_sessions: dict[str, dict] = {}
+_sessions: dict[str, str] = {}
 
 
-def _get_or_create(session_id: str | None) -> tuple[str, dict]:
+def _get_or_create(session_id: str | None) -> tuple[str, str]:
     if session_id and session_id in _sessions:
         return session_id, _sessions[session_id]
     sid = str(uuid.uuid4())
-    _sessions[sid] = _fresh_state()
+    _sessions[sid] = str(uuid.uuid4())
     return sid, _sessions[sid]
 
 
@@ -86,24 +87,37 @@ def chat(req: ChatRequest):
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-    session_id, state = _get_or_create(req.session_id)
-    state["query"] = req.message.strip()
-    state["messages"] = state["messages"] + [HumanMessage(content=req.message.strip())]
+    session_id, thread_id = _get_or_create(req.session_id)
+    config = {"configurable": {"thread_id": thread_id}}
+    message = req.message.strip()
 
     try:
-        state = _graph.invoke(state)
+        snapshot = _graph.get_state(config)
+        if snapshot.next:
+            result = _graph.invoke(Command(resume=message), config=config)
+        else:
+            result = _graph.invoke(
+                {"messages": [HumanMessage(content=message)], "query": message},
+                config=config,
+            )
     except Exception as e:
         logger.exception("Graph error")
         raise HTTPException(status_code=500, detail=str(e))
 
-    _sessions[session_id] = state
-    return ChatResponse(session_id=session_id, response=render_response_md(state))
+    snapshot = _graph.get_state(config)
+    if snapshot.next:
+        interrupt_val = snapshot.tasks[0].interrupts[0].value
+        response_text = render_interrupt_md(interrupt_val)
+    else:
+        response_text = render_response_md(result)
+
+    return ChatResponse(session_id=session_id, response=response_text)
 
 
 @app.post("/api/new-session", response_model=NewSessionResponse)
 def new_session(req: ChatRequest):
     sid = str(uuid.uuid4())
-    _sessions[sid] = _fresh_state()
+    _sessions[sid] = str(uuid.uuid4())
     return NewSessionResponse(session_id=sid)
 
 

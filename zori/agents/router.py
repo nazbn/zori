@@ -52,14 +52,7 @@ def make_router_node(llm: BaseChatModel) -> Callable[[ZoriState], dict]:
     structured_llm = llm.with_structured_output(RouterOutput)
 
     def router_node(state: ZoriState) -> dict:
-        logger.debug("router_entry",
-            query=state.get("query"), pending=state.get("pending_confirmation"),
-            confirmation_type=state.get("confirmation_type"), target_key=state.get("target_key"),
-        )
-        # If a confirmation is pending (yes/no reply), skip LLM classification —
-        # routing is handled by _route_from_router based on confirmation_type.
-        if state.get("pending_confirmation"):
-            return {}
+        logger.debug("router_entry", query=state.get("query"), target_key=state.get("target_key"))
 
         results_context = _format_results_for_prompt(state.get("search_results", []))
         system_content = SYSTEM_PROMPT
@@ -78,7 +71,7 @@ def make_router_node(llm: BaseChatModel) -> Callable[[ZoriState], dict]:
             updates["response"] = output.response
             updates["messages"] = [AIMessage(content=output.response)]
 
-        logger.debug("router_exit", intent=updates.get("intent"), target_key=updates.get("target_key"))
+        logger.debug("router_exit", intent=output.intent, target_key=updates.get("target_key"))
         return updates
 
     return router_node

@@ -57,11 +57,12 @@ def test_display_query_always_required():
 
 
 # ---------------------------------------------------------------------------
-# _handle_confirmation — numbered replies and edge cases
+# paper_finder_node — interrupt-based confirmation
 # ---------------------------------------------------------------------------
 
+from unittest.mock import MagicMock, patch
+
 from langchain_core.messages import HumanMessage
-from zori.agents.paper_finder import _handle_confirmation
 from zori.retrieval.search import SearchResult
 
 
@@ -69,57 +70,66 @@ def _make_result(key):
     return SearchResult(item_key=key, title=key, authors=[], year=None, journal=None, text="", score=0.9)
 
 
-def test_confirmation_numbered_reply_selects_correct_result():
-    state = {
-        "query": "2",
-        "search_results": [_make_result("P1"), _make_result("P2"), _make_result("P3")],
-    }
-    result = _handle_confirmation(state)
-    assert result["target_key"] == "P2"
-    assert result["pending_confirmation"] is False
+def _make_node_with_results(results):
+    from zori.agents.paper_finder import make_paper_finder_node
+    svc = MagicMock()
+    svc.hybrid_search.return_value = results
+    llm = MagicMock()
+    from zori.agents.paper_finder import SearchPlan
+    analyzer = MagicMock()
+    analyzer.invoke.return_value = SearchPlan(display_query="test", semantic_query="test")
+    llm.with_structured_output.return_value = analyzer
+    return make_paper_finder_node(svc, llm)
 
 
-def test_confirmation_numbered_reply_first_result():
-    state = {"query": "1", "search_results": [_make_result("P1"), _make_result("P2")]}
-    result = _handle_confirmation(state)
-    assert result["target_key"] == "P1"
+def _state(query="test", intent="summarize"):
+    return {"query": query, "intent": intent, "messages": [HumanMessage(content=query)], "search_results": []}
 
 
-def test_confirmation_numbered_reply_out_of_bounds_cancels():
-    state = {"query": "5", "search_results": [_make_result("P1"), _make_result("P2")]}
-    result = _handle_confirmation(state)
-    assert result["target_key"] is None
-    assert result["pending_confirmation"] is False
-
-
-def test_confirmation_numbered_reply_zero_cancels():
-    state = {"query": "0", "search_results": [_make_result("P1")]}
-    result = _handle_confirmation(state)
-    assert result["target_key"] is None
-
-
-def test_confirmation_yes_sets_candidate_key():
-    state = {"query": "yes", "search_results": [], "candidate_key": "P1"}
-    result = _handle_confirmation(state)
-    assert result["target_key"] == "P1"
-    assert result["pending_confirmation"] is False
-
-
-def test_confirmation_y_shorthand():
-    state = {"query": "y", "search_results": [], "candidate_key": "P1"}
-    result = _handle_confirmation(state)
-    assert result["target_key"] == "P1"
-
-
-def test_confirmation_invalid_reply_cancels():
-    state = {"query": "maybe", "search_results": [], "candidate_key": "P1"}
-    result = _handle_confirmation(state)
-    assert result["target_key"] is None
-    assert result["pending_confirmation"] is False
+def test_no_results_returns_error_without_interrupt():
+    node = _make_node_with_results([])
+    with patch("zori.agents.paper_finder.interrupt") as mock_interrupt:
+        result = node(_state())
+    mock_interrupt.assert_not_called()
+    assert result.get("target_key") is None
     assert result["response"] is not None
 
 
-def test_confirmation_reply_with_whitespace_stripped():
-    state = {"query": "  yes  ", "search_results": [], "candidate_key": "P1"}
-    result = _handle_confirmation(state)
+def test_single_result_yes_sets_target_key():
+    node = _make_node_with_results([_make_result("P1")])
+    with patch("zori.agents.paper_finder.interrupt", return_value="yes"):
+        result = node(_state())
     assert result["target_key"] == "P1"
+
+
+def test_single_result_no_returns_response():
+    node = _make_node_with_results([_make_result("P1")])
+    with patch("zori.agents.paper_finder.interrupt", return_value="no"):
+        result = node(_state())
+    assert result.get("target_key") is None
+    assert result["response"] is not None
+
+
+def test_multiple_results_numbered_reply_selects_correct():
+    results = [_make_result("P1"), _make_result("P2"), _make_result("P3")]
+    node = _make_node_with_results(results)
+    with patch("zori.agents.paper_finder.interrupt", return_value="2"):
+        result = node(_state())
+    assert result["target_key"] == "P2"
+
+
+def test_multiple_results_out_of_bounds_cancels():
+    results = [_make_result("P1"), _make_result("P2")]
+    node = _make_node_with_results(results)
+    with patch("zori.agents.paper_finder.interrupt", return_value="9"):
+        result = node(_state())
+    assert result.get("target_key") is None
+
+
+def test_multiple_results_invalid_reply_cancels():
+    results = [_make_result("P1"), _make_result("P2")]
+    node = _make_node_with_results(results)
+    with patch("zori.agents.paper_finder.interrupt", return_value="maybe"):
+        result = node(_state())
+    assert result.get("target_key") is None
+    assert result["response"] is not None

@@ -33,24 +33,21 @@ def format_results(query: str, results: list[SearchResult]) -> str:
 
 
 def render_response(state: dict) -> str:
-    """Format a ZoriState into a display string for the CLI."""
+    """Format a completed ZoriState into a display string for the CLI."""
     results = state.get("search_results", [])
     intent = state.get("intent", "")
-    pending = state.get("pending_confirmation", False)
 
-    # Search results
-    if results and intent == "search" and not pending:
+    if results and intent == "search":
         return format_results(state.get("display_query") or state.get("query", ""), results)
 
-    response = state.get("response") or ""
+    return state.get("response") or ""
 
-    # Summarization — add link to the paper being summarized
-    if pending and state.get("confirmation_type") == "save_summary":
-        if key := state.get("target_key"):
-            response = f"{response}\n{zotero_link(key)}"
 
-    # Single paper confirmation — add link to the candidate
-    elif pending and state.get("confirmation_type") == "paper_selection" and state.get("candidate_key"):
-        response = f"{response}\n{zotero_link(state['candidate_key'])}"
-
-    return response
+def render_interrupt(value: dict | str) -> str:
+    """Format an interrupt value (question to the user) for the CLI, adding a Zotero link if provided."""
+    if isinstance(value, dict):
+        text = value.get("text", "")
+        if key := value.get("zotero_key"):
+            return f"{text}\n{zotero_link(key)}"
+        return text
+    return str(value)

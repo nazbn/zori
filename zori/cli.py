@@ -6,14 +6,17 @@ from dataclasses import dataclass
 
 from pathlib import Path
 
+import uuid
+
 import typer
 from langchain_core.messages import HumanMessage
+from langgraph.types import Command
 from rich.console import Console
 
 from zori.agents.graph import ZoriState, build_graph
 from zori.config import load_config
 from zori.log import configure_logging
-from zori.display.rich import render_response
+from zori.display.rich import render_interrupt, render_response
 from zori.ingestion.pipeline import IngestionPipeline
 from zori.ingestion.zotero import ZoteroClient
 from zori.llm.providers import get_embeddings, get_llm
@@ -54,21 +57,6 @@ def _init_services() -> tuple[Services, object]:
     return Services(zotero, metadata_store, search_service, pipeline, lexical_index), config
 
 
-def _fresh_state() -> dict:
-    return {
-        "messages": [],
-        "query": "",
-        "intent": "",
-        "target_key": None,
-        "display_query": "",
-        "search_results": [],
-        "summary": None,
-        "response": None,
-        "pending_confirmation": False,
-        "confirmation_type": None,
-        "candidate_key": None,
-    }
-
 
 @app.callback(invoke_without_command=True)
 def main(
@@ -103,7 +91,8 @@ def _repl():
 
     console.print("Zori ready. Type [bold]exit[/bold] to quit, [bold]--new-session[/bold] to start fresh.\n")
 
-    state = _fresh_state()
+    thread_id = str(uuid.uuid4())
+    config_dict = {"configurable": {"thread_id": thread_id}}
 
     while True:
         try:
@@ -120,20 +109,32 @@ def _repl():
             break
 
         if query.lower() == "--new-session":
-            state = _fresh_state()
+            thread_id = str(uuid.uuid4())
+            config_dict = {"configurable": {"thread_id": thread_id}}
             console.print("[dim]Session cleared. Starting fresh.[/dim]\n")
             continue
 
-        state["query"] = query
-        state["messages"] = state["messages"] + [HumanMessage(content=query)]
-
         try:
-            state = graph.invoke(state)
+            snapshot = graph.get_state(config_dict)
+            if snapshot.next:
+                result = graph.invoke(Command(resume=query), config=config_dict)
+            else:
+                result = graph.invoke(
+                    {"messages": [HumanMessage(content=query)], "query": query},
+                    config=config_dict,
+                )
         except Exception as e:
             console.print(f"[red]Something went wrong:[/red] {e}")
             continue
 
-        if output := render_response(state):
+        snapshot = graph.get_state(config_dict)
+        if snapshot.next:
+            interrupt_val = snapshot.tasks[0].interrupts[0].value
+            output = render_interrupt(interrupt_val)
+        else:
+            output = render_response(result)
+
+        if output:
             console.print(output, markup=True)
         console.print()
 

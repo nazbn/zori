@@ -3,6 +3,7 @@ from typing import Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, SystemMessage
+from langgraph.types import interrupt
 from pydantic import BaseModel
 
 logger = structlog.get_logger()
@@ -12,6 +13,18 @@ from zori.display.rich import format_authors
 from zori.ingestion.zotero import ZoteroClient
 from zori.retrieval.lexical import LexicalIndex
 from zori.retrieval.metadata import MetadataStore
+
+
+def _format_note_html(summary: dict) -> str:
+    """Render a summary dict as an HTML string suitable for a Zotero note."""
+    contributions_html = "".join(f"<li>{c}</li>" for c in summary.get("contributions", []))
+    return (
+        "<h2>Zori Summary</h2>"
+        f"<h3>Overview</h3><p>{summary.get('overview', '')}</p>"
+        f"<h3>Key Contributions</h3><ul>{contributions_html}</ul>"
+        f"<h3>Methods</h3><p>{summary.get('methods', '')}</p>"
+        f"<h3>Findings</h3><p>{summary.get('findings', '')}</p>"
+    )
 
 SYSTEM_PROMPT = """You are a research assistant summarizing an academic paper.
 Produce a clear, structured summary for a researcher who wants to quickly understand
@@ -83,19 +96,28 @@ def make_summarization_node(
             response = f"Summarization failed: {e}"
             return {"response": response, "messages": [AIMessage(content=response)]}
 
-        response = _format_summary(
+        summary_text = _format_summary(
             title=meta.get("title", "Unknown"),
             authors=meta.get("authors", []),
             year=meta.get("year"),
             output=output,
         )
 
-        return {
-            "summary": output.model_dump(),
-            "response": response,
-            "pending_confirmation": True,
-            "confirmation_type": "save_summary",
-            "messages": [AIMessage(content=response)],
-        }
+        reply = interrupt({"text": summary_text, "zotero_key": item_key})
+
+        if reply.strip().lower() in ("yes", "y"):
+            try:
+                zotero_client.write_note(item_key, _format_note_html(output.model_dump()), tags=["zori-summary"])
+                save_response = "Summary saved as a note in Zotero."
+            except Exception as e:
+                save_response = f"Failed to save to Zotero: {e}"
+            return {
+                "summary": output.model_dump(),
+                "response": save_response,
+                "messages": [AIMessage(content=save_response)],
+            }
+
+        no_response = "No problem. What else can I help you with?"
+        return {"response": no_response, "messages": [AIMessage(content=no_response)]}
 
     return summarization_node
