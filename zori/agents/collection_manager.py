@@ -14,7 +14,7 @@ from typing import Annotated, Callable, Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
-    AIMessage, HumanMessage, RemoveMessage, SystemMessage, ToolMessage,
+    AIMessage, RemoveMessage, SystemMessage, ToolMessage, trim_messages,
 )
 from langchain_core.tools import BaseTool, InjectedToolCallId, tool
 from langgraph.graph import END
@@ -50,11 +50,16 @@ Rules:
 - If the user refers to specific results by number (e.g. "add 1 and 3", "the first one"), pass those
   numbers as selection; otherwise use selection="all".
 - Do not call add_to_collection if there are no search results available.
+- Never invent a collection name. If the user hasn't named one (in this message or earlier in the
+  conversation), don't call a tool — reply asking which collection they mean.
 - Use list_collections for questions about which collections exist; use list_collection_items when the
   user wants to see what papers are inside a specific collection."""
 
 # Tools that change the user's library and need a yes from the user before they run
 NEEDS_CONFIRMATION = {"add_to_collection"}
+
+# How many recent conversation messages the collection agent sees
+HISTORY_MESSAGES = 6
 
 
 def _full_path(col: ZoteroCollection, by_key: dict[str, ZoteroCollection]) -> str:
@@ -197,13 +202,19 @@ def make_collection_agent_node(llm: BaseChatModel, tools: list[BaseTool]) -> Cal
     llm_with_tools = llm.bind_tools(tools)
 
     def collection_agent_node(state: ZoriState) -> dict:
-        context = state["query"]
+        system = SYSTEM_PROMPT
         search_results = state.get("search_results", [])
         if search_results:
             lines = "\n".join(f"{i}. {r.title} ({r.item_key})" for i, r in enumerate(search_results, 1))
-            context += f"\n\n{len(search_results)} search result(s) currently available:\n{lines}"
+            system += f"\n\n{len(search_results)} search result(s) currently available:\n{lines}"
 
-        response = llm_with_tools.invoke([SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=context)])
+        # Recent conversation, not just the last message: after a redirect ("no, add 1 and 2")
+        # the collection name may only be in an earlier turn. token_counter=len counts messages.
+        history = trim_messages(
+            state["messages"], max_tokens=HISTORY_MESSAGES, token_counter=len,
+            strategy="last", start_on="human",
+        )
+        response = llm_with_tools.invoke([SystemMessage(content=system), *history])
         logger.debug("collection_agent", tool_calls=[(tc["name"], tc["args"]) for tc in response.tool_calls])
         # Clear last turn's tool messages, then store this turn's decision
         return {"collection_messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES), response]}

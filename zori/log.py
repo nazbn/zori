@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -66,3 +67,6 @@ def configure_logging(debug: bool = False) -> None:
 
     for noisy in ("httpcore", "httpx", "urllib3", "chromadb", "pyzotero", "openai", "langsmith", "asyncio"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+
+    # pyzotero calls a deprecated `whenever` API internally — not ours to fix
+    warnings.filterwarnings("ignore", message=r"py_datetime\(\) is deprecated", module="pyzotero")

@@ -1,13 +1,15 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Command
 
 from zori.agents.collection_manager import (
+    HISTORY_MESSAGES,
     collection_respond_node,
+    make_collection_agent_node,
     make_collection_tools,
     make_confirm_collection_node,
     route_collection_agent,
@@ -234,6 +236,47 @@ class TestRouteCollectionAgent:
 
 
 # ---------------------------------------------------------------------------
+# collection_agent node
+# ---------------------------------------------------------------------------
+
+class TestCollectionAgent:
+    def _sent(self, messages, search_results=None):
+        """Run the node and return the message list it sent to the LLM."""
+        tool_llm = MagicMock()
+        tool_llm.invoke.return_value = AIMessage(content="ok")
+        llm = MagicMock()
+        llm.bind_tools.return_value = tool_llm
+        node = make_collection_agent_node(llm, [])
+        node({"messages": messages, "query": messages[-1].content, "search_results": search_results or []})
+        return tool_llm.invoke.call_args[0][0]
+
+    def test_sends_system_prompt_then_conversation(self):
+        messages = [
+            HumanMessage(content="add 1 and 3 to a collection called Test"),
+            AIMessage(content="Create collection 'Test' and add 2 paper(s) to it? (yes / no)"),
+            HumanMessage(content="no let's add 1 and 2"),
+        ]
+        sent = self._sent(messages)
+        assert isinstance(sent[0], SystemMessage)
+        assert [m.content for m in sent[1:]] == [m.content for m in messages]
+
+    def test_search_results_go_in_system_message(self):
+        sent = self._sent([HumanMessage(content="add 2 to SR")], [_result("P1"), _result("P2")])
+        assert "2. P2 (P2)" in sent[0].content
+        assert "2. P2" not in sent[-1].content  # the user's message stays as they wrote it
+
+    def test_history_is_trimmed_and_starts_on_human(self):
+        messages = []
+        for i in range(10):
+            messages += [HumanMessage(content=f"q{i}"), AIMessage(content=f"a{i}")]
+        messages.append(HumanMessage(content="latest"))
+        history = self._sent(messages)[1:]
+        assert len(history) <= HISTORY_MESSAGES
+        assert isinstance(history[0], HumanMessage)
+        assert history[-1].content == "latest"
+
+
+# ---------------------------------------------------------------------------
 # confirm_collection node
 # ---------------------------------------------------------------------------
 
@@ -425,6 +468,20 @@ class TestCollectionGraph:
         assert tool_llm.invoke.call_count == 2  # new turn went through the agent again
         assert "Create collection 'SR'" in result["__interrupt__"][0].value["text"]
         zot.add_items_to_collection.assert_not_called()
+
+    def test_redirect_keeps_collection_name_from_earlier_turn(self):
+        """The bug from manual testing: after "no let's add 1 and 2" the agent only saw that
+        reply, didn't know the collection was called Test, and made up a name."""
+        graph, tool_llm, _ = self._build([("add_to_collection", {"collection_name": "Test", "selection": "1,3"})])
+        _, config = self._start(graph, "add 1 and 3 to a collection called Test",
+                                [_result("P1"), _result("P2"), _result("P3")])
+        graph.invoke(Command(resume="no let's add 1 and 2"), config)
+
+        assert tool_llm.invoke.call_count == 2
+        second_call = tool_llm.invoke.call_args_list[1][0][0]
+        contents = [m.content for m in second_call]
+        assert "add 1 and 3 to a collection called Test" in contents
+        assert contents[-1] == "no let's add 1 and 2"
 
     def test_second_turn_clears_previous_tool_messages(self):
         graph, tool_llm, zot = self._build([("list_collections", {})])
