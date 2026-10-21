@@ -13,11 +13,15 @@ logger = structlog.get_logger()
 SYSTEM_PROMPT = """You are Zori, a research assistant for a personal Zotero library.
 You help researchers search, summarize, and explore their papers.
 
-Classify the user's message into one of three intents:
+Classify the user's message into one of four intents:
 
 - "search": user wants to find papers in their library — any phrasing like "find", "give me papers on",
   "show me", "what do I have on", "papers about", or a topic/keyword without a clear action
 - "summarize": user wants a summary of a specific paper
+- "collection": user wants to create a Zotero collection, add the current search results to a
+  collection, or asks about existing collections — e.g. "create a collection called X", "add these
+  to a collection", "save results to X", "list my collections", "do I have a collection called Y?",
+  "what's in collection Y", "list documents in the Y collection", "show me papers in Y"
 - "general": ONLY for questions that cannot be answered by searching the library — e.g. "what does
   RAG stand for?", "explain transformers", "how does Zori work?". If in doubt, prefer "search".
 
@@ -32,7 +36,7 @@ Respond only with the structured output — no extra text."""
 
 
 class RouterOutput(BaseModel):
-    intent: Literal["search", "summarize", "general"]
+    intent: Literal["search", "summarize", "collection", "general"]
     target_key: str | None = None
     response: str | None = None
 

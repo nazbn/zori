@@ -80,7 +80,9 @@ def _repl():
         raise typer.Exit(1)
 
     llm = get_llm(config)
-    graph = build_graph(services.search_service, services.zotero, llm, services.lexical_index)
+    graph = build_graph(
+        services.search_service, services.zotero, llm, services.lexical_index, services.metadata_store,
+    )
 
     if config.ingestion.sync_on_startup:
         console.print("[dim]Checking for new items in Zotero...[/dim]")
@@ -115,8 +117,9 @@ def _repl():
             continue
 
         try:
-            snapshot = graph.get_state(config_dict)
-            if snapshot.next:
+            # Resume only if a question is pending. snapshot.next alone isn't enough: a node
+            # that crashed also leaves next set, with no question for this reply to answer.
+            if graph.get_state(config_dict).interrupts:
                 result = graph.invoke(Command(resume=query), config=config_dict)
             else:
                 result = graph.invoke(
@@ -127,10 +130,8 @@ def _repl():
             console.print(f"[red]Something went wrong:[/red] {e}")
             continue
 
-        snapshot = graph.get_state(config_dict)
-        if snapshot.next:
-            interrupt_val = snapshot.tasks[0].interrupts[0].value
-            output = render_interrupt(interrupt_val)
+        if "__interrupt__" in result:
+            output = render_interrupt(result["__interrupt__"][0].value)
         else:
             output = render_response(result)
 

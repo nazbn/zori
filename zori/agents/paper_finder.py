@@ -1,12 +1,14 @@
 import structlog
-from typing import Callable
+from typing import Callable, Literal
 
 from langchain_core.messages import AIMessage
-from langgraph.types import interrupt
+from langgraph.graph import END
+from langgraph.types import Command, interrupt
 from pydantic import BaseModel, field_validator
 
 logger = structlog.get_logger()
 
+from zori.agents.confirm import is_no, is_yes, redirect_to_router
 from zori.agents.graph import ZoriState
 from zori.display.rich import format_authors
 from zori.retrieval.search import SearchResult, SearchService
@@ -120,51 +122,73 @@ def make_paper_finder_node(
             }
 
         # ---- Find-for-summarize mode (intent = "summarize", no key yet) ----
+        # Candidates go to confirm_paper, which asks the user — keeping the interrupt out of
+        # this node means resuming doesn't re-run the LLM plan and the search.
         if not final:
             response = f'I couldn\'t find "{plan.display_query}" in your library.'
             return {
+                "candidates": [],
                 "response": response,
                 "messages": [AIMessage(content=response)],
             }
 
-        if len(final) == 1:
-            top = final[0]
-            authors_str = format_authors(top.authors)
-            question = (
-                f'I found "{top.title}" by {authors_str} ({top.year or "?"}).\n'
-                "Shall I summarize this one? (yes / no)"
-            )
-            reply = interrupt({"text": question, "zotero_key": top.item_key})
-            if reply.strip().lower() in ("yes", "y"):
-                return {
-                    "search_results": final,
-                    "target_key": top.item_key,
-                    "candidate_key": top.item_key,
-                }
-            response = "No problem. What else can I help you with?"
-            return {"response": response, "messages": [AIMessage(content=response)]}
-
-        # Multiple plausible results — ask the user to pick
-        lines = [f'I found several papers that could match "{plan.display_query}". Which one?\n']
-        for i, r in enumerate(final[:3], 1):
-            authors_str = format_authors(r.authors)
-            lines.append(f"  {i}. {r.title} — {authors_str} ({r.year or '?'})")
-        lines.append("\nReply with a number, or 'none' to cancel.")
-        question = "\n".join(lines)
-
-        reply = interrupt({"text": question, "zotero_key": None})
-        reply = reply.strip().lower()
-
-        if reply.isdigit():
-            idx = int(reply) - 1
-            if 0 <= idx < len(final[:3]):
-                chosen = final[idx]
-                return {"search_results": final, "target_key": chosen.item_key, "candidate_key": chosen.item_key}
-
-        response = "No problem. What else can I help you with?"
-        return {"response": response, "messages": [AIMessage(content=response)]}
+        return {"candidates": final, "display_query": plan.display_query}
 
     return paper_finder_node
+
+
+def confirm_paper_node(state: ZoriState) -> Command[Literal["summarization", "router", "__end__"]]:
+    """Ask the user which candidate paper to summarize.
+
+    Clear answers pick a paper or cancel; any other reply ("not this one, the X paper") goes
+    back to the router as a new request.
+    """
+    candidates = state["candidates"]
+
+    if len(candidates) == 1:
+        top = candidates[0]
+        authors_str = format_authors(top.authors)
+        question = (
+            f'I found "{top.title}" by {authors_str} ({top.year or "?"}).\n'
+            "Shall I summarize this one? (yes / no)"
+        )
+        reply = interrupt({"text": question, "zotero_key": top.item_key})
+        if is_yes(reply):
+            return _pick(top, candidates)
+        if is_no(reply):
+            return _cancel()
+        return redirect_to_router(question, reply)
+
+    # Multiple plausible results — ask the user to pick
+    options = candidates[:3]
+    lines = [f'I found several papers that could match "{state["display_query"]}". Which one?\n']
+    for i, r in enumerate(options, 1):
+        authors_str = format_authors(r.authors)
+        lines.append(f"  {i}. {r.title} — {authors_str} ({r.year or '?'})")
+    lines.append("\nReply with a number, or 'none' to cancel.")
+    question = "\n".join(lines)
+
+    reply = interrupt({"text": question, "zotero_key": None})
+
+    if reply.strip().isdigit():
+        idx = int(reply.strip()) - 1
+        if 0 <= idx < len(options):
+            return _pick(options[idx], candidates)
+        return _cancel(f"There's no option {idx + 1}. What else can I help you with?")
+    if is_no(reply):
+        return _cancel()
+    return redirect_to_router(question, reply)
+
+
+def _pick(chosen: SearchResult, candidates: list[SearchResult]) -> Command:
+    return Command(
+        goto="summarization",
+        update={"search_results": candidates, "target_key": chosen.item_key, "candidate_key": chosen.item_key},
+    )
+
+
+def _cancel(response: str = "No problem. What else can I help you with?") -> Command:
+    return Command(goto=END, update={"response": response, "messages": [AIMessage(content=response)]})
 
 
 # ---------------------------------------------------------------------------

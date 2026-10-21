@@ -99,6 +99,32 @@ class ZoteroClient:
         self._zot.items(limit=1)
         return int(self._zot.request.headers.get("Last-Modified-Version", 0))
 
+    def create_collection(self, name: str, parent_key: str | None = None) -> str:
+        """Create a new collection in Zotero. Returns the new collection's key."""
+        data: dict = {"name": name}
+        if parent_key:
+            data["parentCollection"] = parent_key
+        result = self._zot.create_collections([data])
+        return result["successful"]["0"]["key"]
+
+    def add_items_to_collection(self, collection_key: str, item_keys: list[str]) -> None:
+        """Add items to an existing collection by their Zotero keys.
+
+        Batched: the Zotero API takes up to 50 keys per read and 50 items per write
+        (update_items chunks the write itself). Items already in the collection are skipped.
+        """
+        items = []
+        for i in range(0, len(item_keys), 50):
+            items += self._zot.items(itemKey=",".join(item_keys[i:i + 50]))
+        updates = [
+            {"key": it["key"], "version": it["version"],
+             "collections": it["data"]["collections"] + [collection_key]}
+            for it in items
+            if collection_key not in it["data"]["collections"]
+        ]
+        if updates:
+            self._zot.update_items(updates)
+
     def write_note(self, item_key: str, html: str, tags: list[str] | None = None) -> None:
         """Save an HTML note as a child of the given item in Zotero."""
         self._zot.create_items([{

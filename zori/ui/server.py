@@ -60,7 +60,9 @@ def _startup():
     services, config = _init_result  # pre-validated in launch()
     _services = services
     llm = get_llm(config)
-    _graph = build_graph(services.search_service, services.zotero, llm, services.lexical_index)
+    _graph = build_graph(
+        services.search_service, services.zotero, llm, services.lexical_index, services.metadata_store,
+    )
     logger.info("Zori graph ready.")
 
 
@@ -92,8 +94,9 @@ def chat(req: ChatRequest):
     message = req.message.strip()
 
     try:
-        snapshot = _graph.get_state(config)
-        if snapshot.next:
+        # Resume only if a question is pending. snapshot.next alone isn't enough: a node
+        # that crashed also leaves next set, with no question for this reply to answer.
+        if _graph.get_state(config).interrupts:
             result = _graph.invoke(Command(resume=message), config=config)
         else:
             result = _graph.invoke(
@@ -104,10 +107,8 @@ def chat(req: ChatRequest):
         logger.exception("Graph error")
         raise HTTPException(status_code=500, detail=str(e))
 
-    snapshot = _graph.get_state(config)
-    if snapshot.next:
-        interrupt_val = snapshot.tasks[0].interrupts[0].value
-        response_text = render_interrupt_md(interrupt_val)
+    if "__interrupt__" in result:
+        response_text = render_interrupt_md(result["__interrupt__"][0].value)
     else:
         response_text = render_response_md(result)
 
