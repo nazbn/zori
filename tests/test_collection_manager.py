@@ -124,14 +124,64 @@ class TestListCollections:
         text, _ = _run_tool(zot, "list_collections", {"name": "Missing"})
         assert "no collection" in text.lower()
 
-    def test_shows_parent_child_path_for_subcollection(self):
+    def test_checks_subcollection_shows_full_path(self):
         zot = MagicMock()
+        parent = _collection("Super-resolution", key="P1")
+        child = _collection("DEM", key="C1", parent_key="P1")
+        zot.fetch_collections.return_value = [parent, child]
+        zot.find_collection.return_value = child
+        text, _ = _run_tool(zot, "list_collections", {"name": "DEM"})
+        assert "Super-resolution/DEM" in text
+
+    def test_lists_tree_sorted_and_nested_with_counts(self):
+        zot = MagicMock()
+        # deliberately out of order, children before parents, mixed case
         zot.fetch_collections.return_value = [
-            _collection("Super-resolution", key="P1"),
-            _collection("DEM", key="C1", parent_key="P1"),
+            _collection("DEM-SR-Attention", num_items=4, key="C3", parent_key="C1"),
+            _collection("Test", num_items=2, key="T1"),
+            _collection("DEM", num_items=8, key="C1", parent_key="P1"),
+            _collection("benchmarking", num_items=6, key="C2", parent_key="P1"),
+            _collection("Super-resolution", num_items=20, key="P1"),
+            _collection("AI agents", num_items=3, key="A1"),
         ]
         text, _ = _run_tool(zot, "list_collections", {})
-        assert "Super-resolution/DEM" in text
+        assert text.split("\n") == [
+            "You have 6 collection(s):",
+            "AI agents (3 items)",
+            "Super-resolution (20 items)",
+            "├─ benchmarking (6 items)",
+            "└─ DEM (8 items)",
+            "   └─ DEM-SR-Attention (4 items)",
+            "Test (2 items)",
+        ]
+
+    def test_vertical_line_continues_under_non_last_child(self):
+        zot = MagicMock()
+        zot.fetch_collections.return_value = [
+            _collection("Root", key="R"),
+            _collection("A", key="A", parent_key="R"),
+            _collection("A1", key="A1", parent_key="A"),
+            _collection("B", key="B", parent_key="R"),
+        ]
+        text, _ = _run_tool(zot, "list_collections", {})
+        assert text.split("\n")[1:] == [
+            "Root (3 items)",
+            "├─ A (3 items)",
+            "│  └─ A1 (3 items)",
+            "└─ B (3 items)",
+        ]
+
+    def test_singular_item_count(self):
+        zot = MagicMock()
+        zot.fetch_collections.return_value = [_collection("One", num_items=1)]
+        text, _ = _run_tool(zot, "list_collections", {})
+        assert "One (1 item)" in text.split("\n")
+
+    def test_orphaned_subcollection_shown_at_top_level(self):
+        zot = MagicMock()
+        zot.fetch_collections.return_value = [_collection("Lost", key="C1", parent_key="GONE")]
+        text, _ = _run_tool(zot, "list_collections", {})
+        assert "Lost (3 items)" in text.split("\n")
 
 
 # ---------------------------------------------------------------------------

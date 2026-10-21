@@ -73,6 +73,32 @@ def _full_path(col: ZoteroCollection, by_key: dict[str, ZoteroCollection]) -> st
     return "/".join(reversed(parts))
 
 
+def _collection_tree(cols: list[ZoteroCollection]) -> list[str]:
+    """Render collections as a tree drawn with ├─ / └─ / │, each level sorted by name.
+    Every line ends with '(N items)'. A collection whose parent isn't in the list is shown
+    at the top level."""
+    by_key = {c.key: c for c in cols}
+    children: dict[str | None, list[ZoteroCollection]] = {}
+    for c in cols:
+        parent = c.parent_key if c.parent_key in by_key else None
+        children.setdefault(parent, []).append(c)
+
+    lines = []
+
+    def walk(parent_key: str | None, prefix: str, top_level: bool) -> None:
+        kids = sorted(children.get(parent_key, []), key=lambda c: c.name.lower())
+        for i, c in enumerate(kids):
+            last = i == len(kids) - 1
+            count = f"{c.num_items} item{'' if c.num_items == 1 else 's'}"
+            branch = "" if top_level else ("└─ " if last else "├─ ")
+            lines.append(f"{prefix}{branch}{c.name} ({count})")
+            child_prefix = "" if top_level else prefix + ("   " if last else "│  ")
+            walk(c.key, child_prefix, top_level=False)
+
+    walk(None, "", top_level=True)
+    return lines
+
+
 def resolve_selection(search_results: list[SearchResult], selection: str | None) -> list[str]:
     """Map 'all' or '1,3' to item keys of the current search results; invalid numbers are skipped."""
     item_keys = [r.item_key for r in search_results]
@@ -153,8 +179,7 @@ def make_collection_tools(zotero_client: ZoteroClient) -> list[BaseTool]:
             return f"'{_full_path(col, by_key)}' exists ({col.num_items} item(s))."
         if not cols:
             return "You don't have any collections yet."
-        paths = ", ".join(_full_path(c, by_key) for c in cols)
-        return f"You have {len(cols)} collection(s): {paths}."
+        return "\n".join([f"You have {len(cols)} collection(s):", *_collection_tree(cols)])
 
     @tool
     def list_collection_items(
