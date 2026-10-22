@@ -52,24 +52,37 @@ def test_extract_text_raises_on_bad_pdf(parser):
 
 # --- chunk ---
 
-def test_chunk_returns_text_chunks(parser):
+def test_chunk_returns_text_chunks():
     text = "word " * 500  # ~2500 chars
-    chunks = parser.chunk(text, item_key="KEY1", chunk_size=100, chunk_overlap=20)
+    chunks = PDFParser(chunk_size=100, chunk_overlap=20).chunk(text, item_key="KEY1")
 
     assert len(chunks) > 1
     assert all(isinstance(c, TextChunk) for c in chunks)
     assert all(c.item_key == "KEY1" for c in chunks)
 
 
-def test_chunk_indices_are_sequential(parser):
+def test_chunk_indices_are_sequential():
     text = "word " * 500
-    chunks = parser.chunk(text, item_key="KEY1", chunk_size=100, chunk_overlap=20)
+    chunks = PDFParser(chunk_size=100, chunk_overlap=20).chunk(text, item_key="KEY1")
     indices = [c.chunk_index for c in chunks]
     assert indices == list(range(len(chunks)))
 
 
 def test_chunk_short_text_returns_single_chunk(parser):
     text = "Short paper."
-    chunks = parser.chunk(text, item_key="KEY1", chunk_size=1000, chunk_overlap=200)
+    chunks = parser.chunk(text, item_key="KEY1")
     assert len(chunks) == 1
     assert chunks[0].text == "Short paper."
+
+
+def test_chunk_respects_configured_size():
+    text = "word " * 500
+    small = PDFParser(chunk_size=100, chunk_overlap=0).chunk(text, item_key="K")
+    large = PDFParser(chunk_size=1000, chunk_overlap=0).chunk(text, item_key="K")
+    assert all(len(c.text) <= 100 for c in small)
+    assert len(small) > len(large)
+
+
+def test_overlap_larger_than_size_fails_at_construction():
+    with pytest.raises(ValueError):
+        PDFParser(chunk_size=100, chunk_overlap=150)

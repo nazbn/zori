@@ -17,6 +17,7 @@ from zori.agents.graph import ZoriState, build_graph
 from zori.config import load_config
 from zori.log import configure_logging
 from zori.display.rich import render_interrupt, render_response
+from zori.ingestion.pdf import PDFParser
 from zori.ingestion.pipeline import IngestionPipeline
 from zori.ingestion.zotero import ZoteroClient
 from zori.llm.providers import get_embeddings, get_llm
@@ -52,7 +53,8 @@ def _init_services() -> tuple[Services, object]:
     metadata_store = MetadataStore()
     lexical_index = LexicalIndex()
     search_service = SearchService(vector_store, metadata_store, lexical_index)
-    pipeline = IngestionPipeline(zotero, vector_store, metadata_store, lexical_index)
+    parser = PDFParser(config.ingestion.chunk_size, config.ingestion.chunk_overlap)
+    pipeline = IngestionPipeline(zotero, vector_store, metadata_store, lexical_index, parser=parser)
 
     return Services(zotero, metadata_store, search_service, pipeline, lexical_index), config
 

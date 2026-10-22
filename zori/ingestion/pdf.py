@@ -17,6 +17,14 @@ class TextChunk:
 
 
 class PDFParser:
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        # Built once here so bad settings (overlap > size) fail at startup, not mid-ingestion
+        self._splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=["\n\n", "\n", ". ", " ", ""],
+        )
+
     def extract_text(self, pdf_bytes: bytes) -> str:
         """Extract full text from a PDF, page by page."""
         try:
@@ -32,20 +40,9 @@ class PDFParser:
 
         return text
 
-    def chunk(
-        self,
-        text: str,
-        item_key: str,
-        chunk_size: int = 1000,
-        chunk_overlap: int = 200,
-    ) -> list[TextChunk]:
+    def chunk(self, text: str, item_key: str) -> list[TextChunk]:
         """Split text into overlapping chunks, each tagged with its source item key."""
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            separators=["\n\n", "\n", ". ", " ", ""],
-        )
-        raw_chunks = splitter.split_text(text)
+        raw_chunks = self._splitter.split_text(text)
 
         return [
             TextChunk(

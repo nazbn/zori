@@ -32,12 +32,13 @@ class IngestionPipeline:
         vector_store: ZoriVectorStore,
         metadata_store: MetadataStore,
         lexical_index: LexicalIndex | None = None,
+        parser: PDFParser | None = None,
     ):
         self._zotero = zotero
         self._vector_store = vector_store
         self._metadata_store = metadata_store
         self._lexical_index = lexical_index
-        self._parser = PDFParser()
+        self._parser = parser or PDFParser()
         self._state = self._load_state()
 
     def run_full(

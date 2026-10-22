@@ -40,15 +40,29 @@ def metadata_store(tmp_path):
 
 
 @pytest.fixture
-def pipeline(mock_zotero, mock_vector_store, metadata_store, tmp_path, monkeypatch):
+def mock_parser():
+    parser = MagicMock()
+    parser.extract_text.return_value = "Full paper text here."
+    parser.chunk.return_value = [MagicMock(item_key="P1", chunk_index=0)]
+    return parser
+
+
+@pytest.fixture
+def pipeline(mock_zotero, mock_vector_store, metadata_store, mock_parser, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    with patch("zori.ingestion.pipeline.PDFParser") as MockParser:
-        mock_parser = MagicMock()
-        mock_parser.extract_text.return_value = "Full paper text here."
-        mock_parser.chunk.return_value = [MagicMock(item_key="P1", chunk_index=0)]
-        MockParser.return_value = mock_parser
-        p = IngestionPipeline(mock_zotero, mock_vector_store, metadata_store)
-    return p
+    return IngestionPipeline(mock_zotero, mock_vector_store, metadata_store, parser=mock_parser)
+
+
+def test_uses_the_parser_it_is_given(pipeline, mock_parser):
+    pipeline.run_full()
+    mock_parser.chunk.assert_called_once_with("Full paper text here.", item_key="P1")
+
+
+def test_default_parser_when_none_given(mock_zotero, mock_vector_store, metadata_store, tmp_path, monkeypatch):
+    from zori.ingestion.pdf import PDFParser
+    monkeypatch.chdir(tmp_path)
+    p = IngestionPipeline(mock_zotero, mock_vector_store, metadata_store)
+    assert isinstance(p._parser, PDFParser)
 
 
 # --- run_full ---

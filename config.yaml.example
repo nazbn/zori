@@ -19,6 +19,8 @@ vector_store:
   persist_directory: .zori/chroma
 
 # Ingestion
+# changes don't apply to already ingested papers; to apply them to the full library,
+# delete the .zori/ folder and run `zori ingest` again
 ingestion:
   sync_on_startup: false    # set to true to check Zotero for new items on every launch
   chunk_size: 1000          # characters per chunk (increase for more context, decrease for precision)
