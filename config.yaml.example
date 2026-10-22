@@ -1,14 +1,18 @@
 # LLM Backend
 llm:
-  provider: openai          # openai | anthropic | ollama
-  model: gpt-4o             # openai: gpt-4o, gpt-4o-mini
+  provider: openai          # supported: openai | anthropic | ollama
+                            # other LangChain providers can be used but are untested
+                            # and may lack features Zori requires
+  model: gpt-4o            # openai: gpt-4o, gpt-4o-mini
                             # anthropic: claude-sonnet-4-6, claude-haiku-4-5-20251001
                             # ollama: llama3.1, llama3.2 (must be running locally)
   temperature: 0.2
 
 # Embeddings
 embeddings:
-  provider: openai          # openai | huggingface | ollama
+  provider: openai          # supported: openai | huggingface | ollama
+                            # other LangChain providers can be used but are untested
+                            # and may lack features Zori requires
   model: text-embedding-3-small  # openai: text-embedding-3-small
                                  # ollama: nomic-embed-text
                                  # huggingface: any sentence-transformers model
