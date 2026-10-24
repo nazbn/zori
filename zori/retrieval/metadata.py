@@ -68,38 +68,6 @@ class MetadataStore:
         self._conn.execute("DELETE FROM papers WHERE item_key = ?", (item_key,))
         self._conn.commit()
 
-    def title_search(self, query: str) -> list[str]:
-        """Return item keys whose title contains any word from the query."""
-        words = [w for w in query.lower().split() if len(w) > 1]
-        if not words:
-            return []
-        conditions = " OR ".join("LOWER(title) LIKE ?" for _ in words)
-        rows = self._conn.execute(
-            f"SELECT item_key FROM papers WHERE {conditions}",
-            [f"%{w}%" for w in words],
-        ).fetchall()
-        return [r["item_key"] for r in rows]
-
-    def author_search(self, query: str) -> list[str]:
-        """Return item keys with an author name matching the query."""
-        rows = self._conn.execute(
-            "SELECT item_key FROM papers WHERE LOWER(authors) LIKE ?",
-            (f"%{query.lower()}%",),
-        ).fetchall()
-        return [r["item_key"] for r in rows]
-
-    def tag_search(self, query: str) -> list[str]:
-        """Return item keys where any tag matches any word in the query."""
-        words = [w for w in query.lower().split() if len(w) > 1]
-        if not words:
-            return []
-        conditions = " OR ".join("LOWER(tags) LIKE ?" for _ in words)
-        rows = self._conn.execute(
-            f"SELECT item_key FROM papers WHERE {conditions}",
-            [f"%{w}%" for w in words],
-        ).fetchall()
-        return [r["item_key"] for r in rows]
-
     def filter(
         self,
         year_from: str | None = None,
