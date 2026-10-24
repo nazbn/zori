@@ -18,6 +18,7 @@ Search, summarize, and explore your research papers through a conversational int
 
 - **Hybrid search** — combines semantic vector search and BM25 keyword search over your entire library
 - **Summarization** — generates structured summaries and saves them as notes directly in Zotero
+- **Collection management** — create collections, add papers from search results, and browse collections and their contents
 - **Web UI** — clean chat interface built on FastAPI; no browser issues, works on any platform
 - **Conversational context** — references like "the first one" or "that paper" are resolved across turns
 - **Flexible LLM support** — OpenAI, Anthropic, or Ollama (free, runs locally)
@@ -105,9 +106,14 @@ Zori supports natural language queries for searching and summarizing papers:
 > summarize the first one
 > find attention is all you need
 > summarize it
+> add items 1 and 3 to a collection called Reading list
+> list my collections
+> what's in Reading list
 ```
 
 Queries use hybrid search (keyword + semantic). References to previous results are resolved in context (e.g. "the first one", "that paper").
+
+Before saving a note or changing a collection, Zori asks for confirmation. Reply yes or no, or say what you want instead (e.g. "no, summarize the first one").
 
 In the terminal REPL: type `exit` to quit, `--new-session` to reset conversation history.
 
@@ -119,6 +125,8 @@ In the terminal REPL: type `exit` to quit, `--new-session` to reset conversation
 | Anthropic | `provider: anthropic` | `ANTHROPIC_API_KEY` in `.env` |
 | Ollama (free, local) | `provider: ollama` | [Ollama](https://ollama.com) running locally |
 
+Other LangChain providers can be configured but are untested and may lack features Zori requires.
+
 ## Embeddings options
 
 LLM and embeddings are configured independently — any combination works.
@@ -128,6 +136,8 @@ LLM and embeddings are configured independently — any combination works.
 | OpenAI | `provider: openai`, `model: text-embedding-3-small` | `OPENAI_API_KEY` in `.env` |
 | Ollama (free, local) | `provider: ollama`, `model: nomic-embed-text` | Ollama running + `ollama pull nomic-embed-text` |
 | HuggingFace (free, local) | `provider: huggingface`, `model: <model>` (e.g. `all-MiniLM-L6-v2`) | `pip install "zori[huggingface]"` |
+
+Other LangChain providers can be configured but are untested and may lack features Zori requires.
 
 ## Observability (optional)
 
@@ -143,7 +153,3 @@ MIT — see [LICENSE](LICENSE).
 
 For questions, bug reports, or feature requests, open an issue on the [GitHub issue tracker](https://github.com/nazbn/zori/issues)
 or reach out at nazanin.bagherinejad@rwth-aachen.de.
-
----
-
-*This repository was developed with the assistance of [Claude](https://claude.ai) (Anthropic).*
