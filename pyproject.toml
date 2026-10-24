@@ -26,11 +26,10 @@ classifiers = [
 ]
 dependencies = [
     # Agent orchestration
-    "langgraph>=0.2",
+    "langgraph>=1.0",
     "langchain>=1.0",
     "langchain-openai>=0.2",
     "langchain-anthropic>=0.2",
-    "langchain-community>=0.3",
     "langchain-classic>=1.0",
     "langchain-ollama>=0.2",
     # Zotero
@@ -39,9 +38,6 @@ dependencies = [
     "pdfplumber>=0.11",
     # Vector store
     "chromadb>=0.5",
-    # Embeddings
-    "openai>=1.0",
-    "anthropic>=0.30",
     # Config
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
@@ -62,7 +58,6 @@ Repository = "https://github.com/nazbn/zori"
 Issues = "https://github.com/nazbn/zori/issues"
 
 [project.optional-dependencies]
-qdrant = ["qdrant-client>=1.9"]
 huggingface = ["sentence-transformers>=3.0", "langchain-huggingface>=0.1"]
 dev = [
     "pytest>=9.0",

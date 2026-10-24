@@ -8,7 +8,7 @@ Search, summarize, and explore your research papers through a conversational int
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-1.0+-yellow)
-![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-orange)
+![LangGraph](https://img.shields.io/badge/LangGraph-1.0+-orange)
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-0.5+-purple)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
