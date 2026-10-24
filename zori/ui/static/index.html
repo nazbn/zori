@@ -203,6 +203,9 @@
     .bubble p + p { margin-top: 8px; }
     .bubble p:last-child { margin-bottom: 0; }
     .result-link { font-size: 0.82rem; color: var(--text-muted); display: block; margin-top: 1px; }
+    .tree-line { margin: 2px 0; }
+    .tree-prefix { font-family: ui-monospace, Consolas, monospace; white-space: pre; color: var(--text-muted); }
+    .tree-count { font-size: 0.82rem; color: var(--text-muted); margin-left: 0.3em; }
 
     /* Typing indicator */
     .typing .bubble {
@@ -564,8 +567,15 @@
     while (i < lines.length) {
       const line = lines[i];
       const listMatch = line.match(/^(\d+)\.\s+(.+)$/);
+      // Collection tree ("│  └─ name (3 items)"): box-drawing prefix kept in a monospace
+      // white-space:pre span so it lines up; trailing count shown muted
+      const treeMatch = line.match(/^([│├└─ ]*)(.+) \((\d+ items?)\)$/);
 
-      if (listMatch) {
+      if (treeMatch) {
+        flushList();
+        out.push(`<div class="tree-line"><span class="tree-prefix">${treeMatch[1]}</span>` +
+          `${processInline(treeMatch[2])}<span class="tree-count">${treeMatch[3]}</span></div>`);
+      } else if (listMatch) {
         let content = processInline(listMatch[2].trimEnd());
         // Attach any indented continuation lines (e.g. the Zotero link)
         while (i + 1 < lines.length && /^ {2,}\S/.test(lines[i + 1])) {

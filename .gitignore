@@ -24,6 +24,9 @@ scripts/eval_dataset.yaml
 # DeepEval cache
 .deepeval/
 
+# Playwright MCP output (browser snapshots, screenshots, console logs)
+.playwright-mcp/
+
 # OS
 .DS_Store
 Thumbs.db

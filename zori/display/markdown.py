@@ -25,24 +25,21 @@ def format_results_md(query: str, results: list[SearchResult]) -> str:
 
 
 def render_response_md(state: dict) -> str:
-    """Format a ZoriState into a markdown string for the Gradio UI."""
+    """Format a completed ZoriState into a markdown string for the web UI."""
     results = state.get("search_results", [])
     intent = state.get("intent", "")
-    pending = state.get("pending_confirmation", False)
 
-    # Search results
-    if results and intent == "search" and not pending:
+    if results and intent == "search":
         return format_results_md(state.get("display_query") or state.get("query", ""), results)
 
-    response = state.get("response") or ""
+    return state.get("response") or ""
 
-    # Summarization — add link to the paper being summarized
-    if pending and state.get("confirmation_type") == "save_summary":
-        if key := state.get("target_key"):
-            response = f"{response}\n\n{zotero_link_md(key)}"
 
-    # Single paper confirmation — add link to the candidate
-    elif pending and state.get("confirmation_type") == "paper_selection" and state.get("candidate_key"):
-        response = f"{response}\n\n{zotero_link_md(state['candidate_key'])}"
-
-    return response
+def render_interrupt_md(value: dict | str) -> str:
+    """Format an interrupt value (question to the user) for the web UI, adding a Zotero link if provided."""
+    if isinstance(value, dict):
+        text = value.get("text", "")
+        if key := value.get("zotero_key"):
+            return f"{text}\n\n{zotero_link_md(key)}"
+        return text
+    return str(value)

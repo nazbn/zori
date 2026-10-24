@@ -40,15 +40,29 @@ def metadata_store(tmp_path):
 
 
 @pytest.fixture
-def pipeline(mock_zotero, mock_vector_store, metadata_store, tmp_path, monkeypatch):
+def mock_parser():
+    parser = MagicMock()
+    parser.extract_text.return_value = "Full paper text here."
+    parser.chunk.return_value = [MagicMock(item_key="P1", chunk_index=0)]
+    return parser
+
+
+@pytest.fixture
+def pipeline(mock_zotero, mock_vector_store, metadata_store, mock_parser, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    with patch("zori.ingestion.pipeline.PDFParser") as MockParser:
-        mock_parser = MagicMock()
-        mock_parser.extract_text.return_value = "Full paper text here."
-        mock_parser.chunk.return_value = [MagicMock(item_key="P1", chunk_index=0)]
-        MockParser.return_value = mock_parser
-        p = IngestionPipeline(mock_zotero, mock_vector_store, metadata_store)
-    return p
+    return IngestionPipeline(mock_zotero, mock_vector_store, metadata_store, parser=mock_parser)
+
+
+def test_uses_the_parser_it_is_given(pipeline, mock_parser):
+    pipeline.run_full()
+    mock_parser.chunk.assert_called_once_with("Full paper text here.", item_key="P1")
+
+
+def test_default_parser_when_none_given(mock_zotero, mock_vector_store, metadata_store, tmp_path, monkeypatch):
+    from zori.ingestion.pdf import PDFParser
+    monkeypatch.chdir(tmp_path)
+    p = IngestionPipeline(mock_zotero, mock_vector_store, metadata_store)
+    assert isinstance(p._parser, PDFParser)
 
 
 # --- run_full ---
@@ -107,4 +121,31 @@ def test_run_sync_uses_library_version(pipeline, mock_zotero):
 def test_run_sync_nothing_new(pipeline, mock_zotero):
     mock_zotero.fetch_new_items.return_value = []
     result = pipeline.run_sync()
+    assert result.ingested == 0
+
+
+# --- collection scoping ---
+
+def test_run_full_with_collection_fetches_collection_items(pipeline, mock_zotero):
+    col_item = _make_item(key="COL_ITEM")
+    mock_zotero.fetch_collection_items.return_value = [col_item]
+    result = pipeline.run_full(collection_key="COL1")
+    mock_zotero.fetch_collection_items.assert_called_once_with("COL1")
+    mock_zotero.fetch_all_items.assert_not_called()
+    assert result.ingested == 1
+
+
+def test_run_sync_with_collection_filters_to_collection(pipeline, mock_zotero):
+    in_collection = _make_item(key="IN")
+    not_in_collection = _make_item(key="OUT")
+    mock_zotero.fetch_new_items.return_value = [in_collection, not_in_collection]
+    mock_zotero.fetch_collection_items.return_value = [in_collection]
+    result = pipeline.run_sync(collection_key="COL1")
+    assert result.ingested == 1
+
+
+def test_run_sync_with_collection_nothing_in_collection(pipeline, mock_zotero):
+    mock_zotero.fetch_new_items.return_value = [_make_item(key="OUT")]
+    mock_zotero.fetch_collection_items.return_value = []
+    result = pipeline.run_sync(collection_key="COL1")
     assert result.ingested == 0

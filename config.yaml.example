@@ -1,14 +1,18 @@
 # LLM Backend
 llm:
-  provider: openai          # openai | anthropic | ollama
-  model: gpt-4o             # openai: gpt-4o, gpt-4o-mini
+  provider: openai          # supported: openai | anthropic | ollama
+                            # other LangChain providers can be used but are untested
+                            # and may lack features Zori requires
+  model: gpt-4o            # openai: gpt-4o, gpt-4o-mini
                             # anthropic: claude-sonnet-4-6, claude-haiku-4-5-20251001
                             # ollama: llama3.1, llama3.2 (must be running locally)
   temperature: 0.2
 
 # Embeddings
 embeddings:
-  provider: openai          # openai | huggingface | ollama
+  provider: openai          # supported: openai | huggingface | ollama
+                            # other LangChain providers can be used but are untested
+                            # and may lack features Zori requires
   model: text-embedding-3-small  # openai: text-embedding-3-small
                                  # ollama: nomic-embed-text
                                  # huggingface: any sentence-transformers model
@@ -19,6 +23,8 @@ vector_store:
   persist_directory: .zori/chroma
 
 # Ingestion
+# changes don't apply to already ingested papers; to apply them to the full library,
+# delete the .zori/ folder and run `zori ingest` again
 ingestion:
   sync_on_startup: false    # set to true to check Zotero for new items on every launch
   chunk_size: 1000          # characters per chunk (increase for more context, decrease for precision)

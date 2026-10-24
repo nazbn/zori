@@ -6,14 +6,18 @@ from dataclasses import dataclass
 
 from pathlib import Path
 
+import uuid
+
 import typer
 from langchain_core.messages import HumanMessage
+from langgraph.types import Command
 from rich.console import Console
 
 from zori.agents.graph import ZoriState, build_graph
 from zori.config import load_config
 from zori.log import configure_logging
-from zori.display.rich import render_response
+from zori.display.rich import render_interrupt, render_response
+from zori.ingestion.pdf import PDFParser
 from zori.ingestion.pipeline import IngestionPipeline
 from zori.ingestion.zotero import ZoteroClient
 from zori.llm.providers import get_embeddings, get_llm
@@ -49,25 +53,11 @@ def _init_services() -> tuple[Services, object]:
     metadata_store = MetadataStore()
     lexical_index = LexicalIndex()
     search_service = SearchService(vector_store, metadata_store, lexical_index)
-    pipeline = IngestionPipeline(zotero, vector_store, metadata_store, lexical_index)
+    parser = PDFParser(config.ingestion.chunk_size, config.ingestion.chunk_overlap)
+    pipeline = IngestionPipeline(zotero, vector_store, metadata_store, lexical_index, parser=parser)
 
     return Services(zotero, metadata_store, search_service, pipeline, lexical_index), config
 
-
-def _fresh_state() -> dict:
-    return {
-        "messages": [],
-        "query": "",
-        "intent": "",
-        "target_key": None,
-        "display_query": "",
-        "search_results": [],
-        "summary": None,
-        "response": None,
-        "pending_confirmation": False,
-        "confirmation_type": None,
-        "candidate_key": None,
-    }
 
 
 @app.callback(invoke_without_command=True)
@@ -92,7 +82,9 @@ def _repl():
         raise typer.Exit(1)
 
     llm = get_llm(config)
-    graph = build_graph(services.search_service, services.zotero, llm, services.lexical_index)
+    graph = build_graph(
+        services.search_service, services.zotero, llm, services.lexical_index, services.metadata_store,
+    )
 
     if config.ingestion.sync_on_startup:
         console.print("[dim]Checking for new items in Zotero...[/dim]")
@@ -103,7 +95,8 @@ def _repl():
 
     console.print("Zori ready. Type [bold]exit[/bold] to quit, [bold]--new-session[/bold] to start fresh.\n")
 
-    state = _fresh_state()
+    thread_id = str(uuid.uuid4())
+    config_dict = {"configurable": {"thread_id": thread_id}}
 
     while True:
         try:
@@ -120,20 +113,31 @@ def _repl():
             break
 
         if query.lower() == "--new-session":
-            state = _fresh_state()
+            thread_id = str(uuid.uuid4())
+            config_dict = {"configurable": {"thread_id": thread_id}}
             console.print("[dim]Session cleared. Starting fresh.[/dim]\n")
             continue
 
-        state["query"] = query
-        state["messages"] = state["messages"] + [HumanMessage(content=query)]
-
         try:
-            state = graph.invoke(state)
+            # Resume only if a question is pending. snapshot.next alone isn't enough: a node
+            # that crashed also leaves next set, with no question for this reply to answer.
+            if graph.get_state(config_dict).interrupts:
+                result = graph.invoke(Command(resume=query), config=config_dict)
+            else:
+                result = graph.invoke(
+                    {"messages": [HumanMessage(content=query)], "query": query},
+                    config=config_dict,
+                )
         except Exception as e:
             console.print(f"[red]Something went wrong:[/red] {e}")
             continue
 
-        if output := render_response(state):
+        if "__interrupt__" in result:
+            output = render_interrupt(result["__interrupt__"][0].value)
+        else:
+            output = render_response(result)
+
+        if output:
             console.print(output, markup=True)
         console.print()
 
@@ -171,9 +175,13 @@ def init():
 
 
 @app.command()
-def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified items only (skips items already ingested).")):
+def ingest(
+    sync: bool = typer.Option(False, "--sync", help="Sync new/modified items only."),
+    collection: str | None = typer.Option(None, "--collection", "-c", help="Ingest only items in this collection (by name)."),
+):
     """Ingest your Zotero library. Downloads PDFs, extracts text, and builds the search index.
-    Run without --sync for a full ingest, or with --sync to pick up new items since last run."""
+    Run without --sync for a full ingest, or with --sync to pick up new items since last run.
+    Use --collection to scope ingestion to a specific collection."""
     configure_logging(debug=False)
     try:
         services, _ = _init_services()
@@ -181,10 +189,50 @@ def ingest(sync: bool = typer.Option(False, "--sync", help="Sync new/modified it
         console.print(f"[red]Setup error:[/red] {e}")
         raise typer.Exit(1)
 
+    collection_key: str | None = None
+    if collection:
+        col = services.zotero.find_collection(collection)
+        if col is None:
+            console.print(f"[red]Collection not found:[/red] {collection!r}")
+            console.print("Run [bold]zori collections[/bold] to see available collections.")
+            raise typer.Exit(1)
+        collection_key = col.key
+
     if sync:
-        services.pipeline.run_sync()
+        services.pipeline.run_sync(collection_key=collection_key, collection_name=collection)
     else:
-        services.pipeline.run_full()
+        services.pipeline.run_full(collection_key=collection_key, collection_name=collection)
+
+
+@app.command()
+def collections():
+    """List all collections in your Zotero library."""
+    configure_logging(debug=False)
+    try:
+        services, _ = _init_services()
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"[red]Setup error:[/red] {e}")
+        raise typer.Exit(1)
+
+    cols = services.zotero.fetch_collections()
+    if not cols:
+        console.print("No collections found.")
+        return
+
+    def _print_level(parent_key: str | None, indent: int) -> None:
+        children = sorted(
+            [c for c in cols if c.parent_key == parent_key],
+            key=lambda c: c.name.lower(),
+        )
+        for col in children:
+            n = col.num_items
+            label = f"{'item' if n == 1 else 'items'}"
+            prefix = "  " + "  " * indent + ("└─ " if indent > 0 else "")
+            name = f"[bold]{col.name}[/bold]" if indent == 0 else col.name
+            console.print(f"{prefix}{name}  [dim]({n} {label})[/dim]")
+            _print_level(col.key, indent + 1)
+
+    _print_level(None, 0)
 
 
 @app.command()
