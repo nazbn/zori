@@ -81,7 +81,21 @@ zori ingest
 ```
 Downloads your Zotero PDFs, extracts text, and builds the search index in `.zori/`.
 Run time depends on library size and embedding provider. You only need to do a full ingest once.
-To index new or modified items added to Zotero since the last ingest, run `zori ingest --sync`.
+
+To index new or modified items added to Zotero since the last ingest:
+```bash
+zori ingest --sync
+```
+
+To ingest a single collection (use `"<parent>/<child>"` for a subcollection; subcollections are not included automatically):
+```bash
+zori ingest --collection "<name>"
+```
+
+To see the collections in your library:
+```bash
+zori collections
+```
 
 **5. Start the assistant**
 
